@@ -37,7 +37,7 @@ this board does not have it and says why.
 | Dependency review | `dependency-review` | adopted | `dependency-review` | in the tree, #53 |
 | Invisible character guard | `Reject Trojan Source Unicode` | adopted | `Reject Trojan Source Unicode` | in the tree |
 | Workflow audit | `Audit workflows (zizmor)` | adopted | `Audit workflows (zizmor)` | in the tree |
-| Pull request hygiene | `Deterministic PR-hygiene checks` | adopted | `Deterministic PR-hygiene checks` | #20 |
+| Pull request hygiene | `Deterministic PR-hygiene checks` | adopted | `Deterministic PR-hygiene checks` | in the tree, #20 |
 | Supply chain self-audit | `Scorecard analysis` | adopted | `Scorecard analysis` | in the tree |
 | Coverage bar | a step inside `build` | adapted | a bar on the surface that decides an answer | #49 |
 | Mutation testing | `Mutation testing (${{ matrix.scope.name }})` | adopted | scheduled, reported, not gating | #50 |
@@ -100,16 +100,25 @@ wiki.
 ## What this table does not say
 
 It does not say that this board's gate is as good as the target's. Most of the
-rows above name an issue rather than a check that runs, and an issue is a plan.
-What runs on a pull request in this repository today is four checks, and the
-command that says so is:
+rows above name an open issue rather than a check that runs, and an issue is a
+plan. What carries a pull request trigger in this repository is derived rather
+than counted here:
 
-    ls .github/workflows
+    git grep -l '^  pull_request:' origin/main -- .github/workflows/
 
 A row marked adopted whose "carried by" column names an open issue is a leg this
 board intends to have and does not have yet. The distinction is the whole value
 of the table, and collapsing it would turn this document into a claim that the
 parity already exists.
+
+This paragraph is the repair for a defect it carried on the way in. It said four
+checks ran on a pull request, and cited `ls .github/workflows`, which lists a
+workflow that never runs on one and does not produce the number it was quoted
+for. The count was also stale before anybody read it, because a leg landed
+between this document being written and being merged. A number quoted with a
+command that does not produce it is worse than a number with no command at all,
+since the citation invites a reader not to check. The command above produces the
+answer instead of decorating one.
 
 It also does not say anything about how well any leg here works, only that it is
 present or absent. Whether the coverage bar is pinned high enough, or whether
