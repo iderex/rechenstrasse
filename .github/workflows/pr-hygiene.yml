@@ -1,0 +1,91 @@
+# Deterministic PR-hygiene checks (#20), adapted from the check of the same name
+# on the jellyfin-plugin-sso board. It reasons about the pull request rather than
+# about the code: whether the body is there and names an issue, whether the head
+# branch is the default one, whether a generated file was changed without saying
+# so, and whether each commit message carries a body. The other checks on this
+# board read the tree; none of them covers this class.
+#
+# Everything it asserts is decidable from the pull request and the diff. Nothing
+# here is a judgement about quality, because a hygiene check that needs an
+# opinion is a review in disguise. The one clause of #20 that is not decidable,
+# whether a commit message says what changed, is not asserted, and
+# .github/pr-hygiene/hygiene.py says so where the rule would otherwise be read
+# as covering it.
+#
+# The decision logic is a Python module rather than a script inside this file,
+# for one reason: a rule written into a workflow string is a rule nothing can
+# test. .github/pr-hygiene/test_hygiene.py proves every arm bites and proves the
+# nearest input to each one does not, and it runs here before the gate decides
+# anything, so a broken arm reds this check instead of silently passing every
+# pull request. Standard library only, no runtime added: python3 and gh are both
+# on the runner image.
+#
+# Hardened the way the other workflows here are: actions SHA-pinned with a
+# version comment, checkout with persist-credentials:false, deny-all permissions
+# at workflow level with the read scopes granted on the job. Untrusted values -
+# the body, the branch name, the filenames, the commit messages - are written to
+# files by gh and read by Python. None of them is interpolated into a shell
+# command, so there is no template-injection surface.
+name: PR Hygiene
+
+on:
+  pull_request:
+    # edited: so adding the issue reference to the body re-runs the check
+    # instead of leaving it red until an unrelated push.
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+# Cancel a superseded run on the same ref. This is a read-only lint, not a
+# publish, so dropping an obsolete run is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Deterministic PR-hygiene checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # check out the checker and its suite
+      pull-requests: read # read the body, the changed files and the commits
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prove the checks bite
+        # Runs before the gate decides anything. A guard whose proof is not run
+        # on the same commit that runs the guard is a guard nobody is checking.
+        run: python3 .github/pr-hygiene/test_hygiene.py
+
+      - name: Gather the pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/pulls/${PR_NUMBER}" \
+            --jq '{body: .body, head_ref: .head.ref, author_is_bot: (.user.type == "Bot")}' \
+            > pull-request.json
+          gh api "repos/${REPO}" --jq '{default_branch: .default_branch}' > repository.json
+          # --paginate with a per-element --jq emits one object per line, so a
+          # pull request with more than one page of files or commits is read
+          # whole. A concatenated per-page array would not parse.
+          gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+            --jq '.[] | {filename: .filename}' > files.ndjson
+          gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/commits" \
+            --jq '.[] | {sha: .sha, message: .commit.message, parent_count: (.parents | length), author_is_bot: ((.author.type // "") == "Bot")}' \
+            > commits.ndjson
+
+      - name: Decide
+        run: |
+          python3 .github/pr-hygiene/hygiene.py \
+            --pull-request pull-request.json \
+            --repository repository.json \
+            --files files.ndjson \
+            --commits commits.ndjson
