@@ -14,6 +14,12 @@ The four arms, and what each one refuses:
   commit-has-no-body      a commit message that is a subject line and nothing
                           else, trailers not counted as a body
 
+Every failure line starts with the identifier of the arm that produced it. That
+is not decoration. Two arms read the same input, and an empty body names no
+issue as surely as it is empty, so a suite asserting only that something was
+refused lets one arm stand in for another and a deleted arm stays green. The
+identifier is what makes each arm provable on its own.
+
 The issue asks for "the commit messages say what changed". Whether a message
 says what changed is not decidable, so it is not asserted. What is decidable is
 that a message has a body at all, and that the body is more than the trailers
@@ -33,6 +39,7 @@ thing. Standard library only.
 """
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
@@ -66,8 +73,6 @@ REGENERATED = re.compile(r"^Regenerated:\s*(\S+)\s*$", re.MULTILINE)
 
 def _matches(pattern, filename):
     """Glob match, on the basename unless the pattern names a directory."""
-    import fnmatch
-
     if "/" in pattern:
         return fnmatch.fnmatch(filename, pattern)
     return fnmatch.fnmatch(filename.rsplit("/", 1)[-1], pattern)
@@ -81,11 +86,14 @@ def body_failures(pull_request):
     """The body is not empty and it names an issue."""
     body = pull_request.get("body") or ""
     if not body.strip():
-        return ["The pull request body is empty. Everything about a change goes in its body."]
+        return [
+            "body-empty: the pull request body is empty. Everything about a "
+            "change goes in its body."
+        ]
     if not (ISSUE_REFERENCE.search(body) or ISSUE_URL.search(body)):
         return [
-            "The pull request body names no issue. Name the issue it closes, "
-            "for example 'Closes #20'."
+            "no-issue-reference: the pull request body names no issue. Name the "
+            "issue it closes, for example 'Closes #20'."
         ]
     return []
 
@@ -96,8 +104,8 @@ def head_failures(pull_request, repository):
     default = repository.get("default_branch") or ""
     if head and default and head == default:
         return [
-            "The head branch is '%s', which is the default branch. "
-            "Open the change from a branch of its own." % head
+            "head-is-default-branch: the head branch is '%s', which is the "
+            "default branch. Open the change from a branch of its own." % head
         ]
     return []
 
@@ -113,7 +121,8 @@ def generated_failures(pull_request, files):
     ]
     if undeclared:
         return [
-            "Generated file(s) changed with no declaration: %s. "
+            "generated-file-edited: generated file(s) changed with no "
+            "declaration: %s. "
             "A regenerated file carries a 'Regenerated: <path>' line in the body, "
             "one per file. A generated file is not edited by hand."
             % ", ".join(sorted(undeclared))
@@ -155,8 +164,9 @@ def commit_failures(commits):
             bare.append('%s ("%s")' % (commit.get("sha", "")[:7], subject))
     if bare:
         return [
-            "Commit message(s) with no body: %s. A subject line alone cannot say "
-            "what changed and what failure it prevents." % ", ".join(bare)
+            "commit-has-no-body: commit message(s) with no body: %s. A subject "
+            "line alone cannot say what changed and what failure it prevents."
+            % ", ".join(bare)
         ]
     return []
 
