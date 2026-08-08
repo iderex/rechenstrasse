@@ -50,6 +50,14 @@ the start, so a later stage that reaches into an earlier one has to write the
 import and a reader can see it. The stage packages carry a docstring naming the
 record or the issue that fills them in, and no code yet.
 
+One package is not a stage. `rechenstrasse.conventions` holds the sign, index
+and unit conventions of
+[0008](docs/decisions/0008-sign-index-and-unit-conventions.md) as named
+constants and documented functions, so that a stage reads the metric signature
+rather than assuming one and calls `riemann` rather than writing the sign out
+again. Every stage below it depends on those choices and none of them may make
+its own.
+
 ## Running the suite
 
 One command, and it is the whole fast suite:
