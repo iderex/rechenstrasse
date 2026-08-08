@@ -40,11 +40,13 @@ you push because it walks the whole tree. A run prints, at its end, the suites i
 did not run and the command for each, so a green result cannot be read as
 covering more than it did.
 
-Two checks on the pull request have no useful local form and are listed here so
+Three checks on the pull request have no useful local form and are listed here so
 that the absence is visible rather than surprising. The dependency review reads
 the diff against an advisory database on the server. The hygiene check reads the
 pull request itself, which does not exist until you open one, and the command
-above runs that check's own suite rather than the check.
+above runs that check's own suite rather than the check. The code scanning
+analysis needs the CodeQL command-line tool, and what it produces is read in the
+code scanning view rather than in a terminal.
 
 ## Every change starts as an issue and lands as a pull request
 
@@ -170,6 +172,7 @@ same thing in a clone.
 | `DCO sign-off` | `git log --format=%B` and read the trailers |
 | `Deterministic PR-hygiene checks` | `python3 .github/pr-hygiene/test_hygiene.py`, which is the check's own suite rather than the check |
 | `Reject Trojan Source Unicode` | the pattern and the `git grep` that reads it are in `.github/workflows/unicode-guard.yml` |
+| `Analyze (python)` | none in a clone without the CodeQL command-line tool, and what it finds is read in the code scanning view rather than printed |
 | `Audit workflows (zizmor)` | `uvx --no-build "zizmor@<version>" --strict-collection --min-severity=low --format=plain .`, at the version pinned in `.github/workflows/zizmor.yml` |
 | `zizmor` | none, and it is not the row above. Code scanning reports it after that job uploads its results, and it says whether the change introduced a new alert |
 | `dependency-review` | none, it reads the diff against an advisory database on the server |

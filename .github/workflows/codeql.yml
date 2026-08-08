@@ -1,0 +1,82 @@
+# The check named `Analyze (python)`. Issue #18. Static analysis of the Python
+# this tree writes, with the results uploaded to the code scanning view.
+#
+# The value here is smaller than in a service that parses hostile input, because
+# this pipeline reads a local document, and it is not zero for the same reason:
+# the document parser of #25 is exactly the surface that eats a file somebody
+# else wrote, and it does not exist yet. Standing the analysis up before that
+# code arrives is the cheap order, so the first parser lands under a check
+# rather than beside one.
+#
+# The job name is exactly `Analyze (python)`, which is the string #18 names and
+# the string the row in CONTRIBUTING.md carries. It is written out rather than
+# produced by a matrix over one language, because a matrix of one is a name
+# assembled at run time for no gain.
+#
+# `build-mode: none` is what Python takes: there is nothing to compile, and the
+# extractor reads the source as it stands. It reads the tree rather than an
+# installed environment, so an import this repository does not vendor is not
+# resolved and a finding that would need the library's own source is out of
+# reach here.
+#
+# What this does not cover, and it is the larger half of #18. The alert queue is
+# not triaged by this file. Analysis of the workflow files is `zizmor` and is a
+# separate check with its own upload.
+#
+# This repository has taken no pull request from a fork, and how this job behaves
+# on one is not measured here.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the scopes granted on the job.
+name: Code scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write # upload the results into the code scanning view
+      contents: read # check out the source that is analysed
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialise the analysis
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          languages: python
+          build-mode: none
+
+      - name: Analyse and upload
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          category: "/language:python"
+
+      - name: What this run did not cover
+        # Last, so the end of the log is the disclosure and not a step after it.
+        run: |
+          echo "the queue of open findings is not triaged by this job. #18 asks"
+          echo "that it be empty or that every open finding carry a written"
+          echo "disposition, and that half is not done by running the analysis."
+          echo "the workflow files are analysed by the zizmor check and not here."
+          echo "no dependency is installed for this analysis, so a finding that"
+          echo "needs a library's own source is out of reach of this run."
