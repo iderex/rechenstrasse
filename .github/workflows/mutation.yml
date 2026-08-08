@@ -11,10 +11,16 @@
 # a failure mode where it reports a perfect score having measured nothing: the
 # command it starts for each mutant does not run the suite at all, every mutant
 # exits non-zero, and every one is recorded as killed. It is not hypothetical.
-# It is what this configuration did on the first attempt, because the runner
-# starts the test command under the base interpreter rather than under the
-# project environment. Two steps below stand against it, and the second one
-# proves the first can fail.
+# It is what this configuration did on the first attempt, on a Windows clone,
+# where the test command reached the base interpreter rather than the project
+# environment and could not import pytest. Two steps below stand against it, and
+# the second one proves the first can fail.
+#
+# The mistake planted in that second step is not the one above, because that one
+# does not reproduce here: on this runner a bare `python -m pytest` resolves and
+# passes, so planting it would prove nothing. What is planted instead is a test
+# path with a character missing, which is a mistake somebody makes on any
+# platform and which no interpreter can be made to work around.
 #
 # It runs on a schedule, on request, and on a change to its own inputs. The last
 # of the three is deliberate: a check whose only routes are a timer and a button
@@ -80,16 +86,16 @@ jobs:
             cosmic-ray baseline tools/mutation.toml
 
       - name: Prove that check refuses a command that cannot run the suite
-        # The near miss is the one that actually happened: a test command that
-        # names the interpreter rather than the environment, which on this
-        # runner cannot import pytest. Without this step the baseline above is a
-        # step nobody has seen fail.
+        # One character out of the test path, which is the mistake somebody
+        # actually makes and which fails on every platform. Without this step
+        # the baseline above is a step nobody has seen fail.
         run: |
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/blind"
           cp -R . "$RUNNER_TEMP/blind"
-          sed -i 's|^test-command = .*|test-command = "python -m pytest -x -q tests"|' \
+          sed -i 's|-q tests"$|-q test"|' \
             "$RUNNER_TEMP/blind/tools/mutation.toml"
+          grep -q -- '-q test"$' "$RUNNER_TEMP/blind/tools/mutation.toml"
           cd "$RUNNER_TEMP/blind"
           if uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
                cosmic-ray baseline tools/mutation.toml > proof.log 2>&1; then

@@ -9,12 +9,19 @@
 #
 # The test command goes through `uv run` rather than calling `python` directly,
 # and that is not decoration. The runner starts the command as a subprocess of
-# whichever interpreter it is running under, which is the base interpreter and
-# not the project environment, so a bare `python -m pytest` cannot import pytest
-# at all. Every mutant then exits non-zero, every one is recorded as killed, and
-# the run reports a perfect score having measured nothing. That is what
-# `cosmic-ray baseline` refuses, which is why the job runs it before anything
-# else.
+# whichever interpreter it is running under, and on a Windows clone that is the
+# base interpreter rather than the project environment, so a bare
+# `python -m pytest` cannot import pytest at all. Every mutant then exits
+# non-zero, every one is recorded as killed, and the run reports a perfect score
+# having measured nothing. It resolves on the Linux runner, which is worse
+# rather than better: the number that cannot be trusted is the one a contributor
+# takes in a clone while the scheduled run looks fine. `cosmic-ray baseline`
+# refuses it either way, which is why the job runs that first.
+#
+# One thing to know before running this in a clone rather than on a runner. A
+# run applies each mutation to the file on disk and puts it back afterwards, so
+# a run that is interrupted leaves the tree mutated. Check the tree before
+# trusting anything that ran after one.
 #
 # `--no-sync` so the command cannot quietly rebuild the environment between one
 # mutant and the next, and `-x` so a mutant that a test catches stops the suite
