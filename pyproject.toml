@@ -29,6 +29,15 @@ quality = [
     "pyyaml>=6,<7",
     "types-pyyaml>=6,<7",
 ]
+# The harness of #14. A floor rather than a pin, the same as everything else
+# here, because uv.lock is what fixes the graph. The floor is 9.0.3 and it is
+# not a taste: GHSA-6w46-j5rx-g56g reports vulnerable temporary directory
+# handling in everything below it, and the dependency review on a pull request
+# refuses a newly introduced package carrying an advisory of any severity. The
+# features this suite needs, `pytest.MonkeyPatch` as a context manager and the
+# strict expected-failure behaviour the guard's proof rests on, are older than
+# that floor and are not what sets it.
+tests = ["pytest>=9.0.3,<10"]
 
 [build-system]
 requires = ["hatchling>=1.27,<2"]
@@ -43,15 +52,34 @@ packages = ["src/rechenstrasse"]
 # are not the ones this tree was written against.
 required-version = ">=0.12"
 # Installed by the default `uv sync`, because a contributor who has to remember
-# a flag to get the three checks is a contributor who meets them on the gate.
-default-groups = ["quality"]
+# a flag to get the checks is a contributor who meets them on the gate. The
+# suite is in the same list for the same reason.
+default-groups = ["quality", "tests"]
+
+[tool.pytest.ini_options]
+minversion = "9.0.3"
+testpaths = ["tests"]
+# The fast suite is what `pytest -q` means, and it is the default because a
+# default nobody runs is not a default. `pytest -m slow` runs the other half,
+# and `pytest -m ""` runs both. The later -m wins, so neither of those has to
+# undo this line.
+addopts = ["-m", "not slow"]
+# Registered rather than free-form, so a marker with a typo in it is an error
+# instead of a test that silently stops being selected by either half.
+markers = [
+    "slow: starts a second process or walks the whole tree, and is left out of the default run",
+]
+# A warning this suite raises is a defect in this suite. The pipeline passes
+# expressions between stages, and a deprecation from the algebra library is the
+# earliest warning that a stage is using an interface that is going away.
+filterwarnings = ["error"]
 
 [tool.ruff]
 # The Python this tree runs on, so a rule about a newer syntax does not fire on
 # code the pinned interpreter cannot run.
 target-version = "py313"
 line-length = 88
-src = ["src", "tools"]
+src = ["src", "tools", "tests"]
 # Two holes, both deliberate and both named.
 #
 # .github/pr-hygiene/ is a self-contained standard-library module with its own
@@ -84,12 +112,15 @@ select = ["E", "F", "I", "B", "UP", "RUF"]
 # that it says which stage got the wrong shape rather than which line crashed.
 python_version = "3.13"
 strict = true
-# The two directories this repository writes. .github/pr-hygiene/ is a
-# self-contained standard-library module with its own suite and its own issue,
-# and is not brought under this command by this change. fixtures/ is outside
-# this list because one of the files in it exists to be refused here, and the
-# job that runs this checker is what runs it against that file.
-files = ["src", "tools"]
+# The directories this repository writes. tests/ is here from the day the suite
+# of #14 exists, because a test that passes the wrong shape into a stage is the
+# same defect as a stage that accepts it, and strict mode is what says which
+# stage got the wrong shape. .github/pr-hygiene/ is a self-contained
+# standard-library module with its own suite and its own issue, and is not
+# brought under this command by this change. fixtures/ is outside this list
+# because one of the files in it exists to be refused here, and the job that
+# runs this checker is what runs it against that file.
+files = ["src", "tools", "tests"]
 # The pipeline imports SymPy, which ships no type information this checker can
 # read. Ignoring the missing stubs is narrower than ignoring the import.
 [[tool.mypy.overrides]]
