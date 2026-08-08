@@ -1,6 +1,8 @@
-# The check named `Enforce greppable invariants`. Issue #19. Four rules that a
-# single file decides on its own, which makes them the cheapest enforcement in
-# the tree and leaves no excuse for any of them living only in a document.
+# The check named `Enforce greppable invariants`. Issues #19 and #53. Rules that
+# a single file decides on its own, which makes them the cheapest enforcement in
+# the tree and leaves no excuse for any of them living only in a document. What
+# the set is at any moment is in tools/invariants.py; a count written here would
+# drift against it.
 #
 # The job name is exactly the string #23 requires on the branch that receives
 # merges. A context that does not match the required name blocks every merge
@@ -64,10 +66,11 @@ jobs:
         run: uv run --frozen python tools/invariants.py
 
       - name: Prove this check refuses a file that trips a rule
-        # A float literal in a module above the evaluation boundary, planted in
-        # a copy of the tree rather than in the tree itself. The fixtures in the
-        # suite prove the rule; this proves the wiring, which is a different
-        # thing and the one that is silently absent when a check is decorative.
+        # Two plants in a copy of the tree, one per kind of file the rules read.
+        # The fixtures in the suite prove the rules; this proves the command
+        # reaches the files, which is a different thing and the one that goes
+        # quietly missing when a check turns decorative. A rule family that is
+        # never exercised end to end is where that happens first.
         run: |
           set -euo pipefail
           rm -rf ../invariant-proof
@@ -75,12 +78,18 @@ jobs:
           rm -rf ../invariant-proof/.venv
           planted=../invariant-proof/src/rechenstrasse/ppn/planted.py
           printf '"""Planted above the boundary."""\n\nGAMMA = 2.3e-5\n' > "$planted"
+          workflow=../invariant-proof/.github/workflows/lint.yml
+          grep -q 'actions/checkout@[0-9a-f]\{40\} #' "$workflow"
+          sed 's|actions/checkout@[0-9a-f]* # v7.0.1|actions/checkout@v7|' \
+            "$workflow" > "$workflow.planted"
+          mv "$workflow.planted" "$workflow"
           if uv run --frozen python tools/invariants.py ../invariant-proof \
                > proof.log 2>&1; then
-            echo "a float literal above the boundary was accepted" >&2
+            echo "a planted violation was accepted" >&2
             cat proof.log >&2
             exit 1
           fi
           grep -q 'no-float-above-the-boundary' proof.log
+          grep -q 'no-unpinned-action' proof.log
           echo "refused, as it should:"
           cat proof.log
