@@ -1,0 +1,132 @@
+# The check named `tests`. Issue #15. The suite of #14 run on every pull request
+# and on every push to the default branch, with the measurement number printed
+# beside it and with what the run did not run printed at the end.
+#
+# The job name is exactly `tests`, in lowercase, because #23 requires that
+# literal string on the branch that receives merges and a context that does not
+# match the required name blocks every merge instead of guarding one. There is no
+# matrix here today; if one arrives, its value does not go into the name, for the
+# same reason.
+#
+# What the suite is, which half of it is default, and what the measurement reads
+# are all configured in pyproject.toml and not here, so the command a
+# contributor runs and the command this job runs are the same command and cannot
+# disagree about a rule. The number does not gate. The bar is #49, and the three
+# ways it has to fail closed are written there rather than started here by
+# halves.
+#
+# The last step is the disclosure and it is last on purpose. A green run says
+# what it examined: the suites this run did not run are printed by name with the
+# command that would run each, so the end of the log cannot be read as covering
+# more than it did. The list is data in tools/suites.py, which refuses an entry
+# naming a file that left the tree and refuses a suite in the tree that no entry
+# names, and its own proof runs here before anything else.
+#
+# Two proofs, because the two halves fail differently. A job that reports green
+# whatever the suite said is caught by running the suite over a file that fails
+# and requiring the run to come out red. A disclosure that has drifted is caught
+# by planting a suite the list does not name into a copy of the tree and
+# requiring a refusal.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the suite and the source it exercises
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        # The same command the README documents, so this job runs the suite on
+        # the interpreter a contributor runs it on rather than on whatever the
+        # runner image happens to carry.
+        run: uv sync --locked
+
+      - name: Prove the disclosure of what was not run fails closed both ways
+        # First, because a guard whose proof is not run on the same commit that
+        # runs the guard is a guard nobody is checking, and because this is
+        # where the obligation lives that a new suite cannot arrive undisclosed.
+        run: uv run --frozen python tools/test_suites.py
+
+      - name: The default suite passes, measured
+        run: uv run --frozen coverage run -m pytest
+
+      - name: The measurement number, which does not gate
+        run: uv run --frozen coverage report
+
+      - name: Prove this check refuses a suite with a failing test
+        # A file whose only defect is the assertion in it. Without this step the
+        # job is green whether the suite passed or was never really run, which
+        # is the failure this check exists against. The linter, the formatter
+        # and the type checker are run against the same file and must accept it,
+        # so a red `tests` here means the suite and nothing else.
+        run: |
+          set -euo pipefail
+          fixture=fixtures/only_a_failing_test.py
+          if uv run --frozen pytest "$fixture" > proof.log 2>&1; then
+            echo "the suite reported green over a test that fails" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          cat proof.log
+          uv run --frozen ruff check --no-cache "$fixture"
+          uv run --frozen ruff format --check "$fixture"
+          uv run --frozen mypy "$fixture"
+
+      - name: Prove the disclosure reaches the tree
+        # The suite above proves what the rule says about a tree it is handed.
+        # This proves the command walks the real one, which is a different thing
+        # and the one that goes quietly missing when a check turns decorative.
+        # The plant is the mistake somebody actually makes: a suite added under
+        # tools/, where the default run never looks, and named nowhere.
+        run: |
+          set -euo pipefail
+          rm -rf ../disclosure-proof
+          cp -R . ../disclosure-proof
+          rm -rf ../disclosure-proof/.venv
+          planted=../disclosure-proof/tools/test_planted.py
+          printf '"""Planted."""\n\n\ndef test_planted() -> None:\n    assert True\n' \
+            > "$planted"
+          if uv run --frozen python tools/suites.py ../disclosure-proof \
+               > proof.log 2>&1; then
+            echo "a suite the disclosure does not name was accepted" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'undisclosed: tools/test_planted.py' proof.log
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: What this run did not run
+        # Last, so the end of the log is the disclosure and not a step after it.
+        run: uv run --frozen python tools/suites.py

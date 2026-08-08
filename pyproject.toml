@@ -37,7 +37,20 @@ quality = [
 # features this suite needs, `pytest.MonkeyPatch` as a context manager and the
 # strict expected-failure behaviour the guard's proof rests on, are older than
 # that floor and are not what sets it.
-tests = ["pytest>=9.0.3,<10"]
+#
+# The measurement tool of #15, in the same group, because the `tests` check runs
+# the suite under it and a contributor who has to remember a second install to
+# reproduce the number is a contributor who reads it off the gate instead. Its
+# floor is the series this configuration was written against and nothing more
+# than that: no claim is made here about advisories below it, and what judges
+# that question for a package arriving in this diff is the dependency review on
+# the pull request, which fails on a known vulnerability of any severity. The
+# number it prints does not gate. The bar is #49 and the three ways it has to
+# fail closed are written there.
+tests = [
+    "coverage>=7.6,<8",
+    "pytest>=9.0.3,<10",
+]
 
 [build-system]
 requires = ["hatchling>=1.27,<2"]
@@ -126,3 +139,28 @@ files = ["src", "tools", "tests"]
 [[tool.mypy.overrides]]
 module = ["sympy.*"]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+# Configured here rather than in the job, so the number a contributor measures
+# in a clone and the number the `tests` check prints come from the same
+# settings. Issue #15 asks for the number and asks that it not gate; the bar and
+# the surface it is pinned on are #49.
+#
+# The package and not the whole tree. This is the code the default suite
+# exercises, and it is the only part of the tree whose number the default run
+# can honestly report: tools/ is read by proofs that run in their own checks and
+# would show here as uncovered work that is in fact covered elsewhere. The
+# whole-tree number is #49's and is not this one.
+source = ["src/rechenstrasse"]
+# Branch coverage, because a stage that refuses on one arm and returns on the
+# other is exactly the shape this pipeline is made of, and a line number cannot
+# tell those two apart.
+branch = true
+# Paths in the report relative to the root, so the same run is readable in a
+# clone and on a runner and the two can be compared line for line.
+relative_files = true
+
+[tool.coverage.report]
+# Which lines are missing, not merely how many. A percentage alone tells nobody
+# what to write next.
+show_missing = true

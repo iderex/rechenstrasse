@@ -93,6 +93,40 @@ uv run pytest -q -m ""
 The first runs only the slower half, the second runs both halves. One test
 carries the marker today.
 
+A run says what it did not run. The slow half is not the only suite the default
+run leaves alone, and the others are printed by name at the end of a run with the
+command that would run each:
+
+```
+uv run python tools/suites.py
+uv run python tools/test_suites.py
+```
+
+The list is data in `tools/suites.py` rather than a paragraph here or a line in a
+workflow, because it has to fail closed in both directions and neither direction
+can be tested in prose. An entry naming a file that has left the tree is refused,
+so the disclosure cannot describe a suite that moved. A suite in the tree that no
+entry names is refused too, which is a test file outside the directory the
+default run reads, or one inside it carrying the marker that deselects it. The
+second command is the proof of both, and it reads paths and the marker rather
+than asking pytest's collector, so a test left out of the default run for any
+other reason is outside what it can see.
+
+The suite is measured, and the number does not gate:
+
+```
+uv run coverage run -m pytest
+uv run coverage report
+```
+
+What is measured is the package under `src/rechenstrasse/`, configured in
+`pyproject.toml` so that the number here and the number on a pull request come
+from the same settings. It reads the package and not the whole tree: the rules
+under `tools/` are covered by proofs that run in their own checks, and counting
+them here would report covered work as uncovered. A bar that fails below a number
+is issue #49 and does not exist yet, so today the number is printed and nothing
+refuses a change that lowers it.
+
 ## Checks you can run
 
 Three named checks read this tree, and each one is a command you can run in a
@@ -132,6 +166,8 @@ with a suite of its own that runs separately. Both gaps are recorded in issue
 
 `fixtures/` holds files that exist to be refused, one per check, each carrying
 exactly one defect. The workflow runs every check against every fixture and
-requires each fixture to be refused by its own check and accepted by the other
-two, which is how a check is shown to be doing its own job rather than passing
-along somebody else's red.
+requires each fixture to be refused by its own check and accepted by the rest,
+which is how a check is shown to be doing its own job rather than passing along
+somebody else's red. The suite has one there too, a test whose assertion fails,
+because a job that reports green whatever the suite said is the same defect one
+step further out.
