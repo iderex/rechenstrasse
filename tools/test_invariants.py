@@ -28,6 +28,34 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import invariants
 
+# A workflow with nothing wrong with it. Every workflow fixture below is this
+# one with exactly one thing changed, so a fixture's only defect is the one
+# under test.
+CLEAN_WORKFLOW = """name: Example
+
+on:
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+jobs:
+  example:
+    name: example
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Do the thing
+        run: echo done
+"""
+
+WORKFLOW = ".github/workflows/example.yml"
+
 # One tripping file and one near miss per rule. The path matters as much as the
 # text: a rule reads a file because of where it sits, so a fixture written at
 # the wrong path proves nothing about the rule it is filed under.
@@ -89,6 +117,56 @@ FIXTURES: dict[str, dict[str, tuple[str, str]]] = {
             "CORPUS = os.path.join(os.path.dirname(__file__), '..', 'docs')\n",
         ),
     },
+    "no-unpinned-action": {
+        "trips": (
+            WORKFLOW,
+            CLEAN_WORKFLOW.replace(
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+                "actions/checkout@v7.0.1",
+            ),
+        ),
+        # The near miss is the clean file itself: a commit with the release
+        # written beside it. The one-character version of this mistake is
+        # dropping the comment, which the suite tests separately.
+        "near_miss": (WORKFLOW, CLEAN_WORKFLOW),
+    },
+    "no-write-permission-at-the-workflow-level": {
+        "trips": (
+            WORKFLOW,
+            CLEAN_WORKFLOW.replace(
+                "permissions: {}", "permissions:\n  contents: write"
+            ),
+        ),
+        # The job below still asks for a write scope of its own in the near
+        # miss, so this proves the rule reads the workflow level and not any
+        # write scope anywhere in the file.
+        "near_miss": (
+            WORKFLOW,
+            CLEAN_WORKFLOW.replace(
+                "    permissions:\n      contents: read",
+                "    permissions:\n      contents: write",
+            ),
+        ),
+    },
+    "checkout-does-not-persist-credentials": {
+        "trips": (
+            WORKFLOW,
+            CLEAN_WORKFLOW.replace(
+                "        with:\n          persist-credentials: false\n", ""
+            ),
+        ),
+        # A different action carrying no `with:` block at all, which the rule
+        # must not reach for.
+        "near_miss": (
+            WORKFLOW,
+            CLEAN_WORKFLOW.replace(
+                "      - name: Do the thing\n        run: echo done\n",
+                "      - name: Do the thing\n"
+                "        uses: astral-sh/setup-uv"
+                "@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0\n",
+            ),
+        ),
+    },
 }
 
 
@@ -113,7 +191,7 @@ class NoRuleShipsWithoutAFixture(unittest.TestCase):
     def test_every_rule_has_an_operator(self) -> None:
         for rule in invariants.RULES:
             with self.subTest(rule=rule.id):
-                self.assertIn(rule.id, invariants.OFFENCES)
+                self.assertIn(rule.id, invariants.OPERATOR_IDS)
 
     def test_no_fixture_names_a_rule_that_does_not_exist(self) -> None:
         # The other direction. A fixture left behind by a deleted rule reads as
@@ -187,12 +265,71 @@ class ExemptionsCannotOutliveTheirFiles(unittest.TestCase):
         self.assertEqual([], [rule.id for rule in invariants.RULES if rule.exempt])
 
 
+class TheWorkflowRulesInDetail(unittest.TestCase):
+    def test_a_commit_with_no_version_comment_is_refused(self) -> None:
+        # The one-character version of the pinning mistake: the right commit,
+        # and nothing saying which release it is.
+        text = CLEAN_WORKFLOW.replace(
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        )
+        failures = invariants.failures([(WORKFLOW, text)])
+        assert_arm(self, failures, "no-unpinned-action")
+
+    def test_a_local_action_is_not_a_pinning_question(self) -> None:
+        text = CLEAN_WORKFLOW.replace(
+            "        uses: actions/checkout"
+            "@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n"
+            "        with:\n          persist-credentials: false\n",
+            "        uses: ./.github/actions/local\n",
+        )
+        self.assertEqual([], invariants.failures([(WORKFLOW, text)]))
+
+    def test_a_missing_permissions_block_is_refused(self) -> None:
+        # Absent is not the same as read-only. Without a block the default is a
+        # repository setting, which is not a property of this file.
+        text = CLEAN_WORKFLOW.replace("permissions: {}\n\n", "")
+        failures = invariants.failures([(WORKFLOW, text)])
+        assert_arm(self, failures, "no-write-permission-at-the-workflow-level")
+
+    def test_write_all_at_the_workflow_level_is_refused(self) -> None:
+        text = CLEAN_WORKFLOW.replace("permissions: {}", "permissions: write-all")
+        failures = invariants.failures([(WORKFLOW, text)])
+        assert_arm(self, failures, "no-write-permission-at-the-workflow-level")
+
+    def test_read_all_at_the_workflow_level_is_not_refused(self) -> None:
+        text = CLEAN_WORKFLOW.replace("permissions: {}", "permissions: read-all")
+        self.assertEqual([], invariants.failures([(WORKFLOW, text)]))
+
+    def test_persist_credentials_true_is_refused(self) -> None:
+        # Written out rather than omitted, which is the shape somebody reaches
+        # for when a later step needs to push.
+        text = CLEAN_WORKFLOW.replace(
+            "persist-credentials: false", "persist-credentials: true"
+        )
+        failures = invariants.failures([(WORKFLOW, text)])
+        assert_arm(self, failures, "checkout-does-not-persist-credentials")
+
+    def test_a_workflow_outside_the_workflows_directory_is_not_read(self) -> None:
+        text = CLEAN_WORKFLOW.replace(
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+            "actions/checkout@v7.0.1",
+        )
+        self.assertEqual([], invariants.failures([("docs/example.yml", text)]))
+
+    def test_a_workflow_that_does_not_parse_is_refused_rather_than_skipped(
+        self,
+    ) -> None:
+        failures = invariants.failures([(WORKFLOW, "name: [unclosed\n")])
+        assert_arm(self, failures, "unparsable")
+
+
 class TheTreeAsItStands(unittest.TestCase):
     def root(self) -> str:
         return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
     def test_the_tree_is_refused_by_nothing(self) -> None:
-        files = invariants.python_files(self.root())
+        files = invariants.source_files(self.root())
         self.assertNotEqual([], files)
         self.assertEqual([], invariants.failures(files))
 
