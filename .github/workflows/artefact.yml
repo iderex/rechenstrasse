@@ -165,9 +165,38 @@ jobs:
           version: "0.12.3"
 
       - name: Install that file into an environment that has nothing else
+        # The interpreter comes out of the wheel's own metadata. There is no
+        # checkout here to read `.python-version` from, and typing a version
+        # into this file would be the same number in two places, drifting the
+        # day the tree moves. Reading it off the artefact also keeps the job
+        # honest: the environment is the one the artefact says it needs.
         run: |
           set -euo pipefail
-          uv venv "$RUNNER_TEMP/artefact"
+          floor="$(python3 - dist <<'PY'
+          import pathlib
+          import re
+          import sys
+          import zipfile
+
+          wheels = sorted(pathlib.Path(sys.argv[1]).glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected one wheel, got {[w.name for w in wheels]}")
+          with zipfile.ZipFile(wheels[0]) as archive:
+              names = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
+              if len(names) != 1:
+                  raise SystemExit(f"expected one METADATA, got {names}")
+              metadata = archive.read(names[0]).decode("utf-8")
+          declared = re.search(r"^Requires-Python:\s*(.+)$", metadata, re.MULTILINE)
+          if declared is None:
+              raise SystemExit("the wheel declares no Requires-Python")
+          lower = re.search(r">=\s*(\d+\.\d+)", declared.group(1))
+          if lower is None:
+              raise SystemExit(f"no lower bound in {declared.group(1)!r}")
+          print(lower.group(1))
+          PY
+          )"
+          echo "the wheel asks for at least Python $floor"
+          uv venv --python "$floor" "$RUNNER_TEMP/artefact"
           uv pip install --python "$RUNNER_TEMP/artefact/bin/python" dist/*.whl
 
       - name: Produce the bill of materials for that environment
