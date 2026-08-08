@@ -14,14 +14,14 @@
 # same commit and the two cannot drift apart. No version number appears in this
 # file, which is the point of it.
 #
-# What this job leaves out is the `quality` group, and it is left out because
-# its floor does not install rather than because nobody looked. The oldest
-# PyYAML the bound admits publishes no wheel for the interpreter series in
-# .python-version and its source build fails on this interpreter, so a floor
-# restore that included the group would be red for a reason that is not about
-# the pipeline. That is a defect in a declared bound; it is issue #84 and it is
-# not repaired here. The last step of this job prints the gap so a green run
-# cannot be read as covering it.
+# The restore is the whole declared graph, with no group left out. It was not
+# always: the `quality` group used to be dropped here because the oldest PyYAML
+# its bound admitted published no wheel for the pinned interpreter series and
+# its source build failed on it, which made the declared minimum of four
+# packages a minimum nobody could restore. The bound now names a version that
+# installs, so the group comes back in, and with it the slow half of the suite,
+# which reads the invariants rules and cannot run without the parser they
+# import.
 #
 # Hardened like the other workflows here: actions SHA-pinned with a version
 # comment, checkout with persist-credentials:false, deny-all permissions at the
@@ -68,7 +68,7 @@ jobs:
         run: uv lock --resolution lowest-direct
 
       - name: Restore at the floor
-        run: uv sync --frozen --no-group quality
+        run: uv sync --frozen
 
       - name: The graph this run actually got
         # Printed rather than asserted. An assertion here would be a list of
@@ -76,8 +76,14 @@ jobs:
         # avoid in the first place.
         run: uv pip list
 
-      - name: The default suite passes at the floor
-        run: uv run --frozen --no-group quality pytest -q
+      - name: The whole suite passes at the floor
+        # Both halves, which is what `-m ""` means here and what the default
+        # `pytest -q` leaves out. The slow half starts a second interpreter and
+        # runs the invariants rules over every file in the tree, and those rules
+        # import the parser whose bound this job used to have to skip. Running
+        # the fast half alone would restore that package and never execute a
+        # line of it.
+        run: uv run --frozen pytest -q -m ""
 
       - name: Prove this check refuses an interface the floor does not have
         # A file whose only defect is that it reaches past the floor. Without
@@ -86,8 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           fixture=fixtures/only_a_floor_defect.py
-          if uv run --frozen --no-group quality python "$fixture" \
-               > proof.log 2>&1; then
+          if uv run --frozen python "$fixture" > proof.log 2>&1; then
             echo "the floor accepted an interface it does not carry" >&2
             cat proof.log >&2
             exit 1
@@ -114,10 +119,10 @@ jobs:
       - name: What this run did not cover
         # Last, so the end of the log is the disclosure and not a step after it.
         run: |
-          echo "the floor of the quality group is not restored or tested here."
-          echo "issue #84 holds the bound that does not install at its minimum."
-          echo "the slow half of the suite is not run at the floor: it reads the"
-          echo "invariants rules, which import a package from that group."
+          echo "the linter, the formatter and the type checker are restored at"
+          echo "their floors and nothing runs them at one, so a setting in"
+          echo "pyproject.toml newer than the oldest version of the tool that"
+          echo "reads it is not caught here."
           echo "the floor tested is the lowest version each direct bound admits."
           echo "a transitive dependency is resolved to its newest allowed"
           echo "version here, so nothing in this run is a claim about one."
