@@ -92,12 +92,24 @@ class ADanglingEntry(unittest.TestCase):
         return found
 
     def test_an_entry_whose_file_left_the_tree_is_refused(self) -> None:
-        victim = suites.SUITES[0].paths[0]
+        victim = next(path for suite in suites.SUITES for path in suite.paths)
         assert_kind(self, suites.failures(self.tree_without(victim)), "dangling")
 
     def test_an_exemption_whose_file_left_the_tree_is_refused(self) -> None:
         victim = suites.NOT_A_SUITE[0][0]
         assert_kind(self, suites.failures(self.tree_without(victim)), "dangling")
+
+    def test_an_entry_whose_covered_directory_emptied_is_refused(self) -> None:
+        # A prefix costs nothing to keep and is the entry least likely to be
+        # noticed once the directory under it goes away, because no single file
+        # name in it ever appears here.
+        prefix = next(prefix for suite in suites.SUITES for prefix in suite.covers)
+        emptied = [
+            (path, text)
+            for path, text in suites.test_files(ROOT)
+            if not path.startswith(prefix)
+        ]
+        assert_kind(self, suites.failures(emptied), "dangling")
 
     def test_a_tree_with_no_tests_at_all_is_refused_rather_than_accepted(self) -> None:
         # Not one refusal but several, and the point is that it is not zero: an
@@ -124,6 +136,28 @@ class AnUndisclosedSuite(unittest.TestCase):
             suites.failures(
                 self.tree_with("tests/rechenstrasse/test_variation.py", PLAIN_TEST)
             ),
+        )
+
+    def test_a_file_added_under_a_covered_directory_is_not_refused(self) -> None:
+        # The reason a prefix exists. A harness that grows a case must not have
+        # to be re-declared here, or the declaration becomes the thing people
+        # work around.
+        prefix = next(prefix for suite in suites.SUITES for prefix in suite.covers)
+        self.assertEqual(
+            [],
+            suites.failures(
+                self.tree_with(f"{prefix}test_one_more_case.py", PLAIN_TEST)
+            ),
+        )
+
+    def test_a_file_beside_a_covered_directory_is_still_refused(self) -> None:
+        # The near miss for the prefix. A prefix covers what is under it and not
+        # what merely starts with the same letters, which is the mistake a
+        # directory renamed by one character makes.
+        prefix = next(prefix for suite in suites.SUITES for prefix in suite.covers)
+        beside = f"{prefix.rstrip('/')}_elsewhere/test_case.py"
+        assert_kind(
+            self, suites.failures(self.tree_with(beside, PLAIN_TEST)), "undisclosed"
         )
 
     def test_a_slow_test_inside_the_default_run_is_refused(self) -> None:

@@ -107,7 +107,7 @@ filterwarnings = ["error"]
 # code the pinned interpreter cannot run.
 target-version = "py313"
 line-length = 88
-src = ["src", "tools", "tests"]
+src = ["src", "tools", "tests", "native_or_long"]
 # Two holes, both deliberate and both named.
 #
 # .github/pr-hygiene/ is a self-contained standard-library module with its own
@@ -147,8 +147,11 @@ strict = true
 # standard-library module with its own suite and its own issue, and is not
 # brought under this command by this change. fixtures/ is outside this list
 # because one of the files in it exists to be refused here, and the job that
-# runs this checker is what runs it against that file.
-files = ["src", "tools", "tests"]
+# runs this checker is what runs it against that file. native_or_long/ is here
+# from the day the harness of #65 exists: it is the suite that runs where the
+# default one cannot, and a wrong shape passed into the seam there is the same
+# defect as one passed in the default run.
+files = ["src", "tools", "tests", "native_or_long"]
 # The pipeline imports SymPy, which ships no type information this checker can
 # read. Ignoring the missing stubs is narrower than ignoring the import.
 [[tool.mypy.overrides]]

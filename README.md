@@ -112,6 +112,34 @@ second command is the proof of both, and it reads paths and the marker rather
 than asking pytest's collector, so a test left out of the default run for any
 other reason is outside what it can see.
 
+Work a plain runner cannot do is not in that suite at all. Record
+[0009](docs/decisions/0009-headless-tests-and-the-second-harness.md) puts it in a
+second harness called `native-or-long`, with its own command and its own check:
+
+```
+uv run pytest -rs native_or_long
+```
+
+Two kinds of work belong there, anything that needs a canonicalisation core
+compiled for the machine it runs on and anything long enough that nobody would
+sit through it on every change, and the name says which rather than calling itself
+the extended or the full suite. `-rs` is part of the command: a case in the
+harness that cannot run on the machine it was started on is skipped with its
+reason printed, never passed, and without that flag the reason is swallowed and
+the skip is counted like a pass.
+
+On every machine today the native case is skipped, because nothing in this tree
+implements the canonicalisation seam yet and there is no compiled core to find.
+What decides that is `native_or_long/seam.py`, which reads what the seam exposes
+rather than a name written into a test, and its own legs run everywhere, so the
+harness is worth starting on a machine that can run none of its native work. The
+long kind is empty for now. Neither absence is hidden behind a passing test.
+
+Nothing in the default suite imports from the harness, and
+`tests/test_harness_boundary.py` refuses it, because a module the default run
+reads that reaches into the harness hands the default run the harness's
+requirements.
+
 The suite is measured, and the number does not gate:
 
 ```

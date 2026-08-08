@@ -1,26 +1,26 @@
 """What a default run of the suite did not run, and the command for each.
 
 Issue #15. A run says what it examined. The default run is the fast half of
-`tests/`, and this tree holds other suites it never touches: the slow half, the
-proofs that ship beside the two rules in `tools/`, this file's own proof, and the
-standard library module under `.github/pr-hygiene/`. They are printed by name at
-the end of a run together with the command that would run each, so a green
-result cannot be read as covering more than it did.
+`tests/`, and this tree holds other suites it never touches. What they are is the
+list below rather than a sentence here, which would drift against it. They are
+printed by name at the end of a run together with the command that would run
+each, so a green result cannot be read as covering more than it did.
 
 The list is data in the tree rather than an echo inside a workflow file, for two
 reasons. A list written into a job is a list nothing can test, and this one has
 to fail closed in both directions:
 
   a dangling entry
-      An entry naming a file that is not in the tree. The suite it describes
-      either moved or went away, and either way the disclosure is now telling a
-      reader about something that does not exist.
+      An entry naming a file that is not in the tree, or covering a directory
+      that holds no test file. The suite it describes either moved or went away,
+      and either way the disclosure is now telling a reader about something that
+      does not exist.
 
   an undisclosed suite
       A test file outside the directory the default run reads, or a test file
-      inside it carrying the marker that deselects it, which no entry names.
-      That is the drift this file exists against: a suite arrives, the default
-      run does not run it, and nothing says so.
+      inside it carrying the marker that deselects it, which no entry names and
+      no entry covers. That is the drift this file exists against: a suite
+      arrives, the default run does not run it, and nothing says so.
 
 Both are refused by `failures` below, which `main` runs before it prints, so the
 disclosure cannot go stale without the check that prints it going red.
@@ -62,9 +62,27 @@ class Suite:
     # Why the default run leaves it out. Printed with the entry, because a
     # reader deciding whether to run it needs the reason and not only the name.
     because: str
+    # Directory prefixes the command runs whole, for an entry that is a suite
+    # rather than a file. At least one test file has to sit under each prefix, so
+    # a prefix cannot outlive the directory it was written for, and a file added
+    # under one needs no edit here. Exact paths are the better form where the
+    # entry is one file, because they say which file.
+    covers: tuple[str, ...] = ()
 
 
 SUITES: tuple[Suite, ...] = (
+    Suite(
+        name="the native-or-long harness",
+        command="uv run pytest -rs native_or_long",
+        paths=(),
+        covers=("native_or_long/",),
+        because=(
+            "record 0009 puts work that needs a canonicalisation core compiled "
+            "for this machine, or a derivation nobody would sit through, in a "
+            "harness of its own, and a case in it that this machine cannot run "
+            "is skipped with its reason printed rather than passed"
+        ),
+    ),
     Suite(
         name="the slow half of this suite",
         command="uv run pytest -q -m slow",
@@ -167,6 +185,7 @@ def failures(files: Iterable[tuple[str, str]]) -> list[str]:
     the real tree to find out what the disclosure would say about it.
     """
     present = {path for path, _ in files}
+    prefixes = tuple(prefix for suite in SUITES for prefix in suite.covers)
     disclosed = {path for suite in SUITES for path in suite.paths}
     exempt = {path for path, _ in NOT_A_SUITE}
 
@@ -179,6 +198,13 @@ def failures(files: Iterable[tuple[str, str]]) -> list[str]:
                     "file in this tree, so the disclosure describes a suite "
                     "that moved or went away"
                 )
+        for prefix in sorted(set(suite.covers)):
+            if not any(path.startswith(prefix) for path in present):
+                found.append(
+                    f"dangling: {suite.name} covers {prefix}, where this tree "
+                    "holds no test file at all, so the disclosure describes a "
+                    "suite that moved or went away"
+                )
     for path, reason in sorted(NOT_A_SUITE):
         if path not in present:
             found.append(
@@ -187,7 +213,7 @@ def failures(files: Iterable[tuple[str, str]]) -> list[str]:
             )
 
     for path, text in sorted(files):
-        if path in disclosed or path in exempt:
+        if path in disclosed or path in exempt or path.startswith(prefixes):
             continue
         if not path.startswith(DEFAULT_RUN):
             found.append(
