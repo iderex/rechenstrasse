@@ -1,0 +1,123 @@
+# The check named `Dependency floor`. Issue #16. A second restore of the same
+# tree, at the oldest dependency versions this project says it supports, with
+# the suite run against it.
+#
+# The failure it prevents surfaces at the operator rather than in the suite. The
+# lock resolves to the newest graph the bounds allow, every other check on a
+# pull request runs on that graph, and a stage written against an interface that
+# arrived after the declared minimum passes all of them. The operator who
+# installed at the minimum meets an import error instead of a result.
+#
+# The floor is derived and never repeated here. `uv lock --resolution
+# lowest-direct` takes the lowest version each bound in pyproject.toml admits
+# for a direct dependency, so raising or lowering a bound moves this job in the
+# same commit and the two cannot drift apart. No version number appears in this
+# file, which is the point of it.
+#
+# What this job leaves out is the `quality` group, and it is left out because
+# its floor does not install rather than because nobody looked. The oldest
+# PyYAML the bound admits publishes no wheel for the interpreter series in
+# .python-version and its source build fails on this interpreter, so a floor
+# restore that included the group would be red for a reason that is not about
+# the pipeline. That is a defect in a declared bound; it is issue #84 and it is
+# not repaired here. The last step of this job prints the gap so a green run
+# cannot be read as covering it.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Dependency floor
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  floor:
+    name: Dependency floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the tree, the bounds and the suite
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Resolve the floor from the declared minimums
+        # This rewrites uv.lock inside the runner and nothing carries it back.
+        # The step prints every version it moved, so the log says which floor
+        # was tested rather than leaving a reader to work it out from bounds.
+        run: uv lock --resolution lowest-direct
+
+      - name: Restore at the floor
+        run: uv sync --frozen --no-group quality
+
+      - name: The graph this run actually got
+        # Printed rather than asserted. An assertion here would be a list of
+        # versions in a workflow file, which is the drift this job is built to
+        # avoid in the first place.
+        run: uv pip list
+
+      - name: The default suite passes at the floor
+        run: uv run --frozen --no-group quality pytest -q
+
+      - name: Prove this check refuses an interface the floor does not have
+        # A file whose only defect is that it reaches past the floor. Without
+        # this step the job is green whether the floor restore ran the code or
+        # merely installed it, which is the failure this check exists against.
+        run: |
+          set -euo pipefail
+          fixture=fixtures/only_a_floor_defect.py
+          if uv run --frozen --no-group quality python "$fixture" \
+               > proof.log 2>&1; then
+            echo "the floor accepted an interface it does not carry" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'factor_system' proof.log
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: Prove the refusal was the floor and not the file
+        # The same file, on the graph the lock resolves to, has to run. That is
+        # what makes the step above evidence about a version bound rather than
+        # about a broken fixture. The linter, the formatter and the type checker
+        # accept it too, so a red step above means the floor and nothing else.
+        run: |
+          set -euo pipefail
+          fixture=fixtures/only_a_floor_defect.py
+          git checkout -- uv.lock
+          uv sync --locked
+          uv run --frozen python "$fixture"
+          uv run --frozen ruff check --no-cache "$fixture"
+          uv run --frozen ruff format --check "$fixture"
+          uv run --frozen mypy "$fixture"
+
+      - name: What this run did not cover
+        # Last, so the end of the log is the disclosure and not a step after it.
+        run: |
+          echo "the floor of the quality group is not restored or tested here."
+          echo "issue #84 holds the bound that does not install at its minimum."
+          echo "the slow half of the suite is not run at the floor: it reads the"
+          echo "invariants rules, which import a package from that group."
+          echo "the floor tested is the lowest version each direct bound admits."
+          echo "a transitive dependency is resolved to its newest allowed"
+          echo "version here, so nothing in this run is a claim about one."
