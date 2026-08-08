@@ -1,0 +1,94 @@
+# Issue #13 asks that a clean clone and the one setup command documented in the
+# README produce a working environment on Linux, macOS and Windows. That is a
+# claim about three machines, and the person making it usually has one, so this
+# job is where the claim is produced rather than asserted.
+#
+# It does only what the README tells a newcomer to do, in the same order, and
+# then checks the result. Nothing here installs a dependency by hand, because a
+# job that repairs the environment behind the setup command stops testing the
+# setup command.
+#
+# The second half is the proof that the guard bites. `uv sync --locked` is the
+# whole reason the lock is worth committing, so the job also runs it against a
+# copy of the checkout whose project file has been moved out from under the
+# lock, and fails if that restore succeeds. Without this step the first half
+# passes identically whether `--locked` refuses anything or not.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Toolchain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+# A superseded run of a read-only setup check is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  restore:
+    name: Locked environment restores
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the tree the setup command reads
+    strategy:
+      # Every platform reports. A green Linux leg saying nothing about Windows
+      # is the shape this job exists to avoid.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        # Pinned rather than latest, so a change in the tool is a change in this
+        # file and not a Tuesday where the graph moved on its own.
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: The one setup command from the README
+        run: uv sync --locked
+
+      - name: The environment came out right
+        # Reads the version back out of the installed metadata, which is the
+        # project file by another route. --frozen so this step cannot quietly
+        # repair an environment the step above failed to build.
+        run: uv run --frozen python -m rechenstrasse --version
+
+      - name: The locked restore refuses a lock that no longer matches
+        # Run on a copy, so the poisoned project file never touches the tree the
+        # steps above built. A dependency bound is moved and nothing else, which
+        # is the one-character mistake somebody actually makes: editing
+        # pyproject.toml and pushing without running `uv lock`.
+        run: |
+          set -euo pipefail
+          rm -rf ../stale-lock-proof
+          cp -R . ../stale-lock-proof
+          rm -rf ../stale-lock-proof/.venv
+          project=../stale-lock-proof/pyproject.toml
+          # Fail loudly if the bound this proof edits has been renamed, rather
+          # than editing nothing and reporting a refusal that never happened.
+          grep -q 'sympy>=1.13,<2' "$project"
+          sed 's/sympy>=1.13,<2/sympy>=1.14,<2/' "$project" > "$project.edited"
+          mv "$project.edited" "$project"
+          grep -q 'sympy>=1.14,<2' "$project"
+          if (cd ../stale-lock-proof && uv sync --locked); then
+            echo "uv sync --locked accepted a lock that does not match pyproject.toml" >&2
+            exit 1
+          fi
+          echo "refused, as it should"

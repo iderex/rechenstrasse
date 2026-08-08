@@ -179,18 +179,29 @@ class GeneratedFilesAreNotEditedByHand(unittest.TestCase):
             "generated-file-edited",
         )
 
-    def test_the_pattern_set_matches_nothing_tracked_in_this_repository_today(self):
+    # Directories the tree produces rather than tracks. A contributor who has
+    # run the setup command has a virtual environment full of other projects'
+    # files, and walking into it would make this test depend on what they
+    # installed rather than on what this repository carries.
+    DERIVED_DIRECTORIES = (".git", ".venv", "__pycache__", "build", "dist")
+
+    def test_the_pattern_set_reaches_exactly_the_generated_files_in_the_tree(self):
         # The disclosure in hygiene.py, held to by a test rather than by a
-        # comment. When this fails, a generated file has entered the tree and
-        # the arm above stops being fixture-only.
+        # comment. It read "no generated file is tracked yet" until the
+        # toolchain of #13 landed uv.lock, and this test is what refused to let
+        # that sentence go stale. When this fails, the set of generated files in
+        # the tree has moved and the sentence in hygiene.py no longer describes
+        # it.
         root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         present = []
         for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d != ".git"]
+            dirnames[:] = [d for d in dirnames if d not in self.DERIVED_DIRECTORIES]
             for name in filenames:
                 rel = os.path.relpath(os.path.join(dirpath, name), root)
                 present.append(rel.replace(os.sep, "/"))
-        self.assertEqual([], [p for p in present if hygiene.is_generated(p)])
+        self.assertEqual(
+            ["uv.lock"], sorted(p for p in present if hygiene.is_generated(p))
+        )
 
 
 class CommitMessagesCarryABody(unittest.TestCase):

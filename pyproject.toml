@@ -1,0 +1,29 @@
+[project]
+name = "rechenstrasse"
+version = "0.0.0"
+description = "From an action to post-Newtonian parameters and cosmological perturbation equations, in the open."
+readme = "README.md"
+# The interpreter series this tree is written against. The exact build is fixed
+# in .python-version; this range is what the resolver was given, and it is
+# closed at the top because a resolution valid for one series is not a claim
+# about the next one.
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    # Record 0002 names SymPy as the computer algebra system in the same
+    # process. The floor is a version, not a preference: the lock below is what
+    # fixes the graph, and this bound only says which resolutions were allowed.
+    "sympy>=1.13,<2",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rechenstrasse"]
+
+[tool.uv]
+# The lock is what makes two clones agree, so what is asked of uv itself is a
+# floor rather than an exact pin: below this the lock format and `sync --locked`
+# are not the ones this tree was written against.
+required-version = ">=0.12"
