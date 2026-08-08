@@ -1,17 +1,21 @@
-# The check named `lint`. Issue #1 puts the decision record rule here, and issue
-# #17 adds the linter proper beside it, which is why the job is named for the
-# check rather than for the one rule it carries today.
+# The check named `lint`. Two rules under one name, which is what #17 asks for:
+# the linter over the Python this tree writes, and the decision record rule of
+# #1 over docs/decisions/.
 #
 # The job name is exactly `lint`, in lowercase, because #23 requires that
 # literal string on the branch that receives merges and a check context that
 # does not match the required name blocks every merge instead of guarding one.
 #
-# Three steps, in this order and for this reason. The rule's own suite runs
+# What the linter enforces is configured in pyproject.toml and not here, so the
+# command a contributor runs and the command this job runs are the same command
+# and cannot disagree about a rule.
+#
+# Each rule runs twice, once over the tree and once over something built to be
+# refused, and the job fails if the refusal does not happen. Without that half
+# the check is green whether either rule refuses anything or not, which is the
+# failure both issues are about. The decision record rule's own suite runs
 # first, because a guard whose proof is not run on the same commit that runs the
-# guard is a guard nobody is checking. Then the rule runs over the tree. Then
-# the rule runs over a deliberately broken copy of the tree, and the job fails
-# if that copy passes: without it, this check is green whether the rule refuses
-# anything or not, which is the failure the issue is about.
+# guard is a guard nobody is checking.
 #
 # Hardened like the other workflows here: actions SHA-pinned with a version
 # comment, checkout with persist-credentials:false, deny-all permissions at the
@@ -56,6 +60,26 @@ jobs:
         # the interpreter a contributor runs it on rather than on whatever the
         # runner image happens to carry.
         run: uv sync --locked
+
+      - name: The Python in this tree passes the linter
+        run: uv run --frozen ruff check
+
+      - name: Prove this check refuses a file with only a lint defect
+        # An import nothing uses. The formatter has no opinion about that file
+        # and the type checker has none either, and both are run here to prove
+        # it, so a red `lint` on this fixture means the linter and nothing else.
+        run: |
+          set -euo pipefail
+          fixture=fixtures/only_a_lint_defect.py
+          if uv run --frozen ruff check --no-cache "$fixture" > proof.log 2>&1
+          then
+            echo "the linter accepted a file with an unused import" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          cat proof.log
+          uv run --frozen ruff format --check "$fixture"
+          uv run --frozen mypy "$fixture"
 
       - name: Prove the decision record rule bites
         run: uv run --frozen python tools/test_decision_records.py

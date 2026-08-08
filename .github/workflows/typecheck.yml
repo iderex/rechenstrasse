@@ -1,0 +1,73 @@
+# The check named `typecheck`. Issue #17, in the checker's strict mode. This
+# pipeline passes tensor expressions between stages, and what a type checker is
+# worth here is that it names the stage that got the wrong shape rather than the
+# line that crashed six stages later.
+#
+# The job name is exactly `typecheck`, in lowercase, because #23 requires that
+# literal string on the branch that receives merges and a context that does not
+# match the required name blocks every merge instead of guarding one.
+#
+# Strictness, the interpreter version and which directories are read are all
+# configured in pyproject.toml and not here, so the command a contributor runs
+# and the command this job runs are the same command.
+#
+# The second step is the proof. A file whose only defect is a type error is
+# passed to the checker and the job fails if the checker accepts it, and the
+# same file is passed to the linter and the formatter, which must accept it.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Typecheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the source the checker reads
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        run: uv sync --locked
+
+      - name: The source in this tree passes the type checker
+        run: uv run --frozen mypy
+
+      - name: Prove this check refuses a file with only a type defect
+        run: |
+          set -euo pipefail
+          fixture=fixtures/only_a_typecheck_defect.py
+          if uv run --frozen mypy "$fixture" > proof.log 2>&1; then
+            echo "the checker accepted a function returning the wrong type" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          cat proof.log
+          uv run --frozen ruff check --no-cache "$fixture"
+          uv run --frozen ruff format --check "$fixture"

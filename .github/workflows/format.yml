@@ -1,0 +1,78 @@
+# The check named `format`. Issue #17. A formatting argument in review is time
+# spent on nothing, so the layout is decided by a tool and the tool is the only
+# thing that has an opinion about it.
+#
+# The job name is exactly `format`, in lowercase, because #23 requires that
+# literal string on the branch that receives merges and a context that does not
+# match the required name blocks every merge instead of guarding one.
+#
+# What counts as formatted is configured in pyproject.toml and not here, so the
+# command a contributor runs and the command this job runs are the same command.
+#
+# What this covers is the Python. The workflow files and the documents are NOT
+# formatted by a tool in this tree, and #17 carries the reason and what it would
+# cost. This job does not imply otherwise.
+#
+# The second step is the proof. A file whose only defect is its layout is passed
+# to the formatter and the job fails if the formatter accepts it, and the same
+# file is passed to the linter and the type checker, which must accept it. That
+# is what makes the fixture a fixture for this check and not for one of the
+# other two.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Format
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the files whose layout is being read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        run: uv sync --locked
+
+      - name: The Python in this tree is formatted
+        run: uv run --frozen ruff format --check
+
+      - name: Prove this check refuses a file with only a format defect
+        run: |
+          set -euo pipefail
+          fixture=fixtures/only_a_format_defect.py
+          if uv run --frozen ruff format --check "$fixture" > proof.log 2>&1
+          then
+            echo "the formatter accepted a file laid out wrong" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          cat proof.log
+          uv run --frozen ruff check --no-cache "$fixture"
+          uv run --frozen mypy "$fixture"

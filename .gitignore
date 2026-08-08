@@ -8,3 +8,7 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# Tool caches, derived from the tree and rebuilt on demand.
+.mypy_cache/
+.ruff_cache/
