@@ -175,6 +175,7 @@ same thing in a clone.
 | `Analyze (python)` | none in a clone without the CodeQL command-line tool, and what it finds is read in the code scanning view rather than printed |
 | `Audit workflows (zizmor)` | `uvx --no-build "zizmor@<version>" --strict-collection --min-severity=low --format=plain .`, at the version pinned in `.github/workflows/zizmor.yml` |
 | `zizmor` | none, and it is not the row above. Code scanning reports it after that job uploads its results, and it says whether the change introduced a new alert |
+| `CodeQL` | none, and it is not the `Analyze (python)` row. Code scanning reports it after that job uploads its results, and it says whether the change introduced a new alert |
 | `dependency-review` | none, it reads the diff against an advisory database on the server |
 
 The decision record rule runs inside `lint` rather than under a name of its own,

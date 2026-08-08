@@ -99,6 +99,12 @@ NOT_FROM_A_WORKFLOW: tuple[tuple[str, str], ...] = (
         "uploads its results, so it exists on a pull request while no workflow "
         "file in this tree carries that string as a name",
     ),
+    (
+        "CodeQL",
+        "reported by code scanning once the `Analyze (python)` job uploads its "
+        "results, the same shape as the entry above and found the same way, by "
+        "reading the check names off a pull request rather than off this tree",
+    ),
 )
 
 
