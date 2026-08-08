@@ -1,0 +1,10 @@
+# The environment `uv sync --locked` builds. It is derived from uv.lock, which is
+# tracked, so a clone rebuilds it rather than receiving it.
+.venv/
+
+# Interpreter and build output.
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
