@@ -50,6 +50,41 @@ the start, so a later stage that reaches into an earlier one has to write the
 import and a reader can see it. The stage packages carry a docstring naming the
 record or the issue that fills them in, and no code yet.
 
+## Running the suite
+
+One command, and it is the whole fast suite:
+
+```
+uv run pytest -q
+```
+
+It runs offline. That is a property of the harness rather than of the machine:
+`tests/conftest.py` refuses a socket, the convenience constructor that opens one
+and the two name lookups that reach a resolver, for the length of the session,
+and a test that reaches for any of them fails. The refusal has its own exception
+type so that it can be told apart from the `OSError` a genuinely disconnected
+machine gives, which is the difference between a guard that bit and a machine
+that had no route. `tests/test_network_guard.py` is the proof, written as a test
+that opens a socket and is expected to fail, so a guard that stopped working
+reddens the suite instead of passing quietly.
+
+The guard is a floor and not a guarantee. A test that starts a subprocess is
+outside it, because the child is a fresh interpreter the harness never patched,
+and so is an extension module that opens a descriptor without going through the
+`socket` module.
+
+Tests are laid out under `tests/` mirroring `src/rechenstrasse/`. Anything that
+starts a second process or walks the whole tree carries the `slow` marker and is
+left out of the default run:
+
+```
+uv run pytest -q -m slow
+uv run pytest -q -m ""
+```
+
+The first runs only the slower half, the second runs both halves. One test
+carries the marker today.
+
 ## Checks you can run
 
 Three named checks read this tree, and each one is a command you can run in a
