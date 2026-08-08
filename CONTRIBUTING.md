@@ -139,11 +139,11 @@ git commit -s -m "..."
 ```
 
 The certificate says you have the right to submit the contribution under the open
-source license indicated in the file. No license is in this tree yet. Which one
-it will be is the first question in issue #12 and it belongs to the maintainer,
-so until it is answered a sign-off here asserts your right to submit rather than
-the terms you are submitting under. That gap is the reason the question is at the
-top of that issue.
+source license indicated in the file. That license is AGPL-3.0, the GNU Affero
+General Public License version 3, and its text is in [LICENSE](LICENSE). It is
+the first question in issue #12, answered by the maintainer on 2026-08-08, so a
+sign-off here now asserts both your right to submit and the terms you are
+submitting under.
 
 ## The checks, by the name each one carries on a pull request
 

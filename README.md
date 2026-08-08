@@ -171,3 +171,9 @@ which is how a check is shown to be doing its own job rather than passing along
 somebody else's red. The suite has one there too, a test whose assertion fails,
 because a job that reports green whatever the suite said is the same defect one
 step further out.
+
+## License
+
+AGPL-3.0, the GNU Affero General Public License version 3. Copyright (C) 2026 Nils Lehnen.
+
+See [LICENSE](LICENSE) for the full terms.
