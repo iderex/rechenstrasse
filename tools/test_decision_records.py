@@ -23,10 +23,11 @@ Standard library only, and no network.
 import os
 import sys
 import unittest
+from collections.abc import Iterable, Sequence
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import decision_records  # noqa: E402
+import decision_records
 
 VALID = """# 0031. A decision that was made
 
@@ -54,7 +55,7 @@ The measurement that makes this worth arguing again.
 """
 
 
-def without(section):
+def without(section: str) -> str:
     """The valid record with one section heading and its body removed."""
     lines = VALID.splitlines(keepends=True)
     kept = []
@@ -70,7 +71,7 @@ def without(section):
     return "".join(kept)
 
 
-def emptied(section):
+def emptied(section: str) -> str:
     """The valid record with one section's body removed and its heading kept."""
     lines = VALID.splitlines(keepends=True)
     kept = []
@@ -87,33 +88,33 @@ def emptied(section):
     return "".join(kept)
 
 
-def arms(failures):
+def arms(failures: Iterable[str]) -> list[str]:
     return sorted(failure.split(":", 1)[0] for failure in failures)
 
 
-def assert_arm(case, failures, arm):
+def assert_arm(case: unittest.TestCase, failures: Sequence[str], arm: str) -> None:
     """The refusal came from this arm, rather than from something being wrong."""
     case.assertIn(arm, arms(failures), f"expected {arm}, got {failures}")
 
 
 class TheFixturesThemselves(unittest.TestCase):
-    def test_the_valid_record_is_refused_by_nothing(self):
+    def test_the_valid_record_is_refused_by_nothing(self) -> None:
         self.assertEqual([], decision_records.failures([("0031-a-record.md", VALID)]))
 
-    def test_removing_a_section_removes_only_that_section(self):
+    def test_removing_a_section_removes_only_that_section(self) -> None:
         text = without("## Ruled out")
         self.assertNotIn("## Ruled out", text)
         self.assertIn("## Reopened when", text)
         self.assertIn("The measurement that makes this worth arguing again.", text)
 
-    def test_emptying_a_section_keeps_its_heading(self):
+    def test_emptying_a_section_keeps_its_heading(self) -> None:
         text = emptied("## Reopened when")
         self.assertIn("## Reopened when", text)
         self.assertNotIn("The measurement that makes this worth arguing again.", text)
 
 
 class EveryRequiredSectionIsRequired(unittest.TestCase):
-    def test_a_record_missing_one_section_is_refused_for_each_of_the_five(self):
+    def test_a_record_missing_one_section_is_refused_for_each_of_the_five(self) -> None:
         # The whole point of the rule, run once per section rather than once,
         # because a checker that reads four of the five headings passes a test
         # that only removes the one it happens to read.
@@ -126,30 +127,30 @@ class EveryRequiredSectionIsRequired(unittest.TestCase):
                 self.assertEqual(1, len(failures), failures)
                 self.assertIn(section, failures[0])
 
-    def test_a_record_with_all_five_is_not_refused(self):
+    def test_a_record_with_all_five_is_not_refused(self) -> None:
         self.assertEqual([], decision_records.failures([("0031-a-record.md", VALID)]))
 
-    def test_a_sixth_section_is_not_refused(self):
+    def test_a_sixth_section_is_not_refused(self) -> None:
         # A superseding record carries `## Supersedes`. The rule must not
         # mistake an extra section for a defect.
         text = VALID + "\n## Supersedes\n\nRecord 0007.\n"
         self.assertEqual([], decision_records.failures([("0031-a-record.md", text)]))
 
-    def test_a_heading_that_differs_only_in_case_is_refused(self):
+    def test_a_heading_that_differs_only_in_case_is_refused(self) -> None:
         # The near miss for this arm: the writer typed the heading, it looks
         # right in a rendered page, and no route reads it.
         text = VALID.replace("## Reopened when", "## Reopened When")
         failures = decision_records.failures([("0031-a-record.md", text)])
         assert_arm(self, failures, "section-missing")
 
-    def test_a_heading_at_a_deeper_level_is_refused(self):
+    def test_a_heading_at_a_deeper_level_is_refused(self) -> None:
         text = VALID.replace("## Ruled out", "### Ruled out")
         failures = decision_records.failures([("0031-a-record.md", text)])
         assert_arm(self, failures, "section-missing")
 
 
 class AHeadingWithNothingUnderItIsNotASection(unittest.TestCase):
-    def test_an_empty_section_is_refused_for_each_of_the_five(self):
+    def test_an_empty_section_is_refused_for_each_of_the_five(self) -> None:
         for section in decision_records.REQUIRED_SECTIONS:
             with self.subTest(section=section):
                 failures = decision_records.failures(
@@ -158,7 +159,7 @@ class AHeadingWithNothingUnderItIsNotASection(unittest.TestCase):
                 assert_arm(self, failures, "section-empty")
                 self.assertEqual(1, len(failures), failures)
 
-    def test_a_section_holding_one_word_is_not_refused(self):
+    def test_a_section_holding_one_word_is_not_refused(self) -> None:
         # The near miss. A thin section is a review problem, not a rule
         # problem, and this arm must not start having opinions about length.
         text = VALID.replace(
@@ -166,7 +167,7 @@ class AHeadingWithNothingUnderItIsNotASection(unittest.TestCase):
         )
         self.assertEqual([], decision_records.failures([("0031-a-record.md", text)]))
 
-    def test_a_section_holding_only_blank_lines_is_refused(self):
+    def test_a_section_holding_only_blank_lines_is_refused(self) -> None:
         text = VALID.replace(
             "The measurement that makes this worth arguing again.", "   \n\t\n"
         )
@@ -175,37 +176,37 @@ class AHeadingWithNothingUnderItIsNotASection(unittest.TestCase):
 
 
 class TheFilenameCarriesTheIssueNumber(unittest.TestCase):
-    def test_a_name_with_three_digits_is_refused(self):
+    def test_a_name_with_three_digits_is_refused(self) -> None:
         failures = decision_records.failures([("031-a-record.md", VALID)])
         assert_arm(self, failures, "filename-shape")
 
-    def test_a_name_with_four_digits_is_not_refused(self):
+    def test_a_name_with_four_digits_is_not_refused(self) -> None:
         self.assertEqual([], decision_records.failures([("0031-a-record.md", VALID)]))
 
-    def test_a_name_with_no_number_is_refused(self):
+    def test_a_name_with_no_number_is_refused(self) -> None:
         failures = decision_records.failures([("a-record.md", VALID)])
         assert_arm(self, failures, "filename-shape")
 
-    def test_an_uppercase_slug_is_refused(self):
+    def test_an_uppercase_slug_is_refused(self) -> None:
         failures = decision_records.failures([("0031-A-Record.md", VALID)])
         assert_arm(self, failures, "filename-shape")
 
-    def test_a_slug_with_an_underscore_is_refused(self):
+    def test_a_slug_with_an_underscore_is_refused(self) -> None:
         failures = decision_records.failures([("0031_a_record.md", VALID)])
         assert_arm(self, failures, "filename-shape")
 
-    def test_a_one_word_slug_is_not_refused(self):
+    def test_a_one_word_slug_is_not_refused(self) -> None:
         self.assertEqual([], decision_records.failures([("0031-record.md", VALID)]))
 
 
 class ANumberIsNeverReused(unittest.TestCase):
-    def test_two_records_carrying_one_number_are_refused(self):
+    def test_two_records_carrying_one_number_are_refused(self) -> None:
         failures = decision_records.failures(
             [("0031-a-record.md", VALID), ("0031-another-record.md", VALID)]
         )
         assert_arm(self, failures, "number-reused")
 
-    def test_two_records_carrying_two_numbers_are_not_refused(self):
+    def test_two_records_carrying_two_numbers_are_not_refused(self) -> None:
         self.assertEqual(
             [],
             decision_records.failures(
@@ -213,7 +214,7 @@ class ANumberIsNeverReused(unittest.TestCase):
             ),
         )
 
-    def test_the_refusal_names_both_files(self):
+    def test_the_refusal_names_both_files(self) -> None:
         failures = decision_records.failures(
             [("0031-a-record.md", VALID), ("0031-another-record.md", VALID)]
         )
@@ -224,16 +225,16 @@ class ANumberIsNeverReused(unittest.TestCase):
 
 
 class TheDirectoryInThisTree(unittest.TestCase):
-    def directory(self):
+    def directory(self) -> str:
         root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         return os.path.join(root, "docs", "decisions")
 
-    def test_every_record_in_the_tree_is_in_shape(self):
+    def test_every_record_in_the_tree_is_in_shape(self) -> None:
         records = decision_records.read_directory(self.directory())
         self.assertNotEqual([], records)
         self.assertEqual([], decision_records.failures(records))
 
-    def test_the_template_carries_the_headings_the_checker_requires(self):
+    def test_the_template_carries_the_headings_the_checker_requires(self) -> None:
         # The template is what a writer copies and the tuple is what the
         # checker reads. Held to each other here, so a heading renamed in one
         # place cannot sit quietly against the other.
@@ -244,10 +245,10 @@ class TheDirectoryInThisTree(unittest.TestCase):
             self.assertIn(heading, bodies)
             self.assertNotEqual("", bodies[heading])
 
-    def test_the_command_exits_zero_on_the_tree(self):
+    def test_the_command_exits_zero_on_the_tree(self) -> None:
         self.assertEqual(0, decision_records.main([self.directory()]))
 
-    def test_the_command_exits_one_on_a_directory_with_no_records(self):
+    def test_the_command_exits_one_on_a_directory_with_no_records(self) -> None:
         # A wrong path must not read as a clean run. Without this the check
         # passes on any typo in the workflow.
         self.assertEqual(1, decision_records.main([os.path.dirname(__file__)]))

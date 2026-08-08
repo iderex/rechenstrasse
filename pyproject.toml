@@ -15,6 +15,15 @@ dependencies = [
     "sympy>=1.13,<2",
 ]
 
+[dependency-groups]
+# The three checks of #17. Each is configured below rather than in a workflow,
+# so the command a contributor runs and the command the gate runs are the same
+# command and cannot disagree.
+quality = [
+    "ruff>=0.14,<0.15",
+    "mypy>=1.18,<2",
+]
+
 [build-system]
 requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
@@ -27,3 +36,56 @@ packages = ["src/rechenstrasse"]
 # floor rather than an exact pin: below this the lock format and `sync --locked`
 # are not the ones this tree was written against.
 required-version = ">=0.12"
+# Installed by the default `uv sync`, because a contributor who has to remember
+# a flag to get the three checks is a contributor who meets them on the gate.
+default-groups = ["quality"]
+
+[tool.ruff]
+# The Python this tree runs on, so a rule about a newer syntax does not fire on
+# code the pinned interpreter cannot run.
+target-version = "py313"
+line-length = 88
+src = ["src", "tools"]
+# Two holes, both deliberate and both named.
+#
+# .github/pr-hygiene/ is a self-contained standard-library module with its own
+# suite, landed under its own issue, and this change does not bring it under
+# these commands. That is a hole rather than a decision and it is written into
+# #17 as one.
+#
+# The two fixtures are files whose whole purpose is to be refused. They are
+# excluded by name and never by directory, so a fourth file appearing in
+# fixtures/ is read by these commands like any other. The third fixture is not
+# listed, because the thing it is refused by is the type checker and these
+# commands accept it, which is what makes it a fixture for one check and not
+# for three.
+extend-exclude = [
+    ".github",
+    "fixtures/only_a_lint_defect.py",
+    "fixtures/only_a_format_defect.py",
+]
+
+[tool.ruff.lint]
+# E and F are the floor. I is import order, which is the argument in review this
+# check exists to end. B catches the bug-shaped mistakes, UP keeps the syntax at
+# the pinned interpreter, and RUF is ruff's own set. Deliberately not the whole
+# catalogue: a rule nobody agreed to is a rule that gets suppressed inline.
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+# The type checker in strict mode, which is what #17 asks for. The pipeline
+# passes tensor expressions between stages, and the value of a checker there is
+# that it says which stage got the wrong shape rather than which line crashed.
+python_version = "3.13"
+strict = true
+# The two directories this repository writes. .github/pr-hygiene/ is a
+# self-contained standard-library module with its own suite and its own issue,
+# and is not brought under this command by this change. fixtures/ is outside
+# this list because one of the files in it exists to be refused here, and the
+# job that runs this checker is what runs it against that file.
+files = ["src", "tools"]
+# The pipeline imports SymPy, which ships no type information this checker can
+# read. Ignoring the missing stubs is narrower than ignoring the import.
+[[tool.mypy.overrides]]
+module = ["sympy.*"]
+ignore_missing_imports = true

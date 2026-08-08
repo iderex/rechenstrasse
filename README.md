@@ -49,3 +49,36 @@ The layout under `src/rechenstrasse/` keeps one package per pipeline stage from
 the start, so a later stage that reaches into an earlier one has to write the
 import and a reader can see it. The stage packages carry a docstring naming the
 record or the issue that fills them in, and no code yet.
+
+## Checks you can run
+
+Three named checks read this tree, and each one is a command you can run in a
+clone. They are configured in `pyproject.toml` rather than in a workflow file,
+so the verdict here and the verdict on a pull request come from the same
+settings.
+
+```
+uv run ruff check
+uv run ruff format --check
+uv run mypy
+```
+
+The first also carries the decision record rule, which the workflow runs beside
+it:
+
+```
+uv run python tools/decision_records.py docs/decisions
+uv run python tools/test_decision_records.py
+```
+
+What these do not cover. The formatter reads the Python and nothing else, so the
+workflow files and the documents in this tree are laid out by hand. The three
+commands also skip `.github/pr-hygiene/`, which is a standard-library module
+with a suite of its own that runs separately. Both gaps are recorded in issue
+#17 rather than only here.
+
+`fixtures/` holds files that exist to be refused, one per check, each carrying
+exactly one defect. The workflow runs every check against every fixture and
+requires each fixture to be refused by its own check and accepted by the other
+two, which is how a check is shown to be doing its own job rather than passing
+along somebody else's red.

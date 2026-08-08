@@ -34,6 +34,7 @@ import argparse
 import os
 import re
 import sys
+from collections.abc import Sequence
 
 # The five headings, exactly as record 0001 fixes them. This tuple is the
 # authority the checker reads; docs/decisions/0000-template.md is the shape a
@@ -54,14 +55,14 @@ FILENAME = re.compile(r"^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 SECTION = re.compile(r"^(##[^\n]*)$", re.MULTILINE)
 
 
-def section_bodies(text):
+def section_bodies(text: str) -> dict[str, str]:
     """Map each heading in the file to the text under it.
 
     A heading repeated in one file keeps its first body, because a second
     heading of the same name is a defect this checker has no opinion about and
     silently preferring the last one would hide it.
     """
-    bodies = {}
+    bodies: dict[str, str] = {}
     marks = list(SECTION.finditer(text))
     for index, mark in enumerate(marks):
         end = marks[index + 1].start() if index + 1 < len(marks) else len(text)
@@ -70,9 +71,9 @@ def section_bodies(text):
     return bodies
 
 
-def file_failures(name, text):
+def file_failures(name: str, text: str) -> list[str]:
     """Refusals for one file, as `arm: detail` lines."""
-    failures = []
+    failures: list[str] = []
 
     if not FILENAME.match(name):
         failures.append(
@@ -96,13 +97,13 @@ def file_failures(name, text):
     return failures
 
 
-def directory_failures(records):
+def directory_failures(records: Sequence[tuple[str, str]]) -> list[str]:
     """Refusals that need more than one file to see.
 
     `records` is a sequence of (name, text) pairs.
     """
-    failures = []
-    seen = {}
+    failures: list[str] = []
+    seen: dict[str, list[str]] = {}
     for name, _ in records:
         match = FILENAME.match(name)
         if not match:
@@ -118,17 +119,17 @@ def directory_failures(records):
     return failures
 
 
-def failures(records):
+def failures(records: Sequence[tuple[str, str]]) -> list[str]:
     """Every refusal for a directory, in a stable order."""
-    found = []
+    found: list[str] = []
     for name, text in sorted(records):
         found.extend(file_failures(name, text))
     found.extend(directory_failures(records))
     return found
 
 
-def read_directory(path):
-    records = []
+def read_directory(path: str) -> list[tuple[str, str]]:
+    records: list[tuple[str, str]] = []
     for name in sorted(os.listdir(path)):
         full = os.path.join(path, name)
         if not os.path.isfile(full) or not name.endswith(".md"):
@@ -138,7 +139,7 @@ def read_directory(path):
     return records
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refuse a file under docs/decisions/ that is not a record."
     )
