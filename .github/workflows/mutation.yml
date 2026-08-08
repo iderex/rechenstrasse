@@ -1,0 +1,169 @@
+# The mutation run of issue #50. Coverage says a line ran. This says whether a
+# test would have noticed if the line were wrong, which is the question worth
+# asking about a pipeline whose output is an expression nobody eyeballs.
+#
+# It reports and it does not gate. The score moves for reasons that are not
+# defects, and a gate on it turns into an argument with the tool. What does fail
+# is a run that could not be completed, so a broken setup is visible instead of
+# quietly reporting nothing.
+#
+# That distinction is the whole of why this file is careful. A mutation run has
+# a failure mode where it reports a perfect score having measured nothing: the
+# command it starts for each mutant does not run the suite at all, every mutant
+# exits non-zero, and every one is recorded as killed. It is not hypothetical.
+# It is what this configuration did on the first attempt, on a Windows clone,
+# where the test command reached the base interpreter rather than the project
+# environment and could not import pytest. Two steps below stand against it, and
+# the second one proves the first can fail.
+#
+# The mistake planted in that second step is not the one above, because that one
+# does not reproduce here: on this runner a bare `python -m pytest` resolves and
+# passes, so planting it would prove nothing. What is planted instead is a test
+# path with a character missing, which is a mistake somebody makes on any
+# platform and which no interpreter can be made to work around.
+#
+# It runs on a schedule, on request, and on a change to its own inputs. The last
+# of the three is deliberate: a check whose only routes are a timer and a button
+# is a check that first runs after it has landed, and the moment it is most
+# likely to be broken is the moment it changed.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Mutation
+
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/mutation.yml
+      - tools/mutation.toml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+    # The run is one suite per mutant over the whole surface, so this is minutes
+    # rather than seconds. It is a ceiling and not a budget: a run that hits it
+    # is a run that did not complete, and that is a failure by the paragraph
+    # above.
+    timeout-minutes: 60
+    permissions:
+      contents: read # check out the surface and the suite that judges it
+    defaults:
+      run:
+        shell: bash
+    env:
+      COSMIC_RAY_VERSION: "8.4.6"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        run: uv sync --locked
+
+      - name: The unmutated tree passes under the runner's own command
+        # First, and it is the step that stands between this job and a perfect
+        # score over nothing. It runs the configured test command with no
+        # mutation applied and refuses a setup where that command does not pass.
+        run: |
+          uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+            cosmic-ray baseline tools/mutation.toml
+
+      - name: Prove that check refuses a command that cannot run the suite
+        # One character out of the test path, which is the mistake somebody
+        # actually makes and which fails on every platform. Without this step
+        # the baseline above is a step nobody has seen fail.
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/blind"
+          cp -R . "$RUNNER_TEMP/blind"
+          sed -i 's|-q tests"$|-q test"|' \
+            "$RUNNER_TEMP/blind/tools/mutation.toml"
+          grep -q -- '-q test"$' "$RUNNER_TEMP/blind/tools/mutation.toml"
+          cd "$RUNNER_TEMP/blind"
+          if uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+               cosmic-ray baseline tools/mutation.toml > proof.log 2>&1; then
+            echo "a command that cannot run the suite was accepted" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q "Baseline failed" proof.log
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: Enumerate the mutants
+        run: |
+          rm -f session.sqlite
+          uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+            cosmic-ray init tools/mutation.toml session.sqlite
+
+      - name: Prove an unfinished run is refused
+        # Before the run, over the session that was just enumerated and not yet
+        # executed, so the completeness check below is a step that has been seen
+        # to fail on this commit rather than one taken on trust.
+        run: |
+          set -euo pipefail
+          uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+            cr-report session.sqlite > unfinished.txt 2>&1
+          if python3 tools/mutation_score.py unfinished.txt > proof.log 2>&1; then
+            echo "a run with nothing executed was read as complete" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: Run every mutant
+        run: |
+          uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+            cosmic-ray exec tools/mutation.toml session.sqlite
+
+      - name: The score, which does not gate
+        # The completeness check is here and the score is printed beside it.
+        # Nothing compares the score against a number, and `cr-rate` is called
+        # without the flag that would make it exit non-zero on a bad one.
+        run: |
+          set -euo pipefail
+          uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+            cr-report session.sqlite > report.txt
+          survival="$(uv run --frozen --with "cosmic-ray==${COSMIC_RAY_VERSION}" \
+            cr-rate session.sqlite)"
+          python3 tools/mutation_score.py report.txt "$survival" \
+            | tee mutation-score.txt
+          tail -20 report.txt
+
+      - name: Keep the score and the report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation
+          path: |
+            mutation-score.txt
+            report.txt
+          if-no-files-found: error
+
+      - name: What this run did not cover
+        # Last, so the end of the log is the disclosure and not a step after it.
+        run: |
+          echo "the score is a number about this surface and this suite on one"
+          echo "commit. it is not a bar and nothing here fails on a low one."
+          echo "the mutants are the ones this operator set produces. an"
+          echo "operator nobody wrote is a defect class this run cannot see."
+          echo "surviving mutants are counted and not read. which of them are"
+          echo "equivalent to the original, and therefore unkillable, is not"
+          echo "decided here and is not subtracted from the number."
