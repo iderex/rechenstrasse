@@ -26,6 +26,8 @@ uv run --frozen ruff format --check
 uv run --frozen mypy
 uv run --frozen python tools/decision_records.py docs/decisions
 uv run --frozen python tools/test_decision_records.py
+uv run --frozen python tools/checks_table.py
+uv run --frozen python tools/test_checks_table.py
 uv run --frozen python tools/invariants.py
 uv run --frozen python tools/test_invariants.py
 uv run --frozen python tools/test_suites.py
@@ -154,6 +156,9 @@ same thing in a clone.
 | On the pull request | In a clone |
 | --- | --- |
 | `tests` | `uv run --frozen pytest -q` |
+| `Build wheel` | `uv build --wheel`, then installing that file into an environment with nothing else in it and running the installed copy from outside the checkout |
+| `Generate SBOM` | `uvx --no-build --from "cyclonedx-bom==<version>" cyclonedx-py environment <the artefact's interpreter> --of JSON --output-reproducible --validate`, at the version pinned in `.github/workflows/artefact.yml` |
+| `Mutation testing` | `uv run --frozen --with "cosmic-ray==<version>" cosmic-ray init tools/mutation.toml session.sqlite`, then `cosmic-ray exec` and `cr-report` over that session, at the version pinned in `.github/workflows/mutation.yml`. It runs only on a pull request that touches that workflow or `tools/mutation.toml`, and it reports rather than gates |
 | `lint` | `uv run --frozen ruff check` |
 | `format` | `uv run --frozen ruff format --check` |
 | `typecheck` | `uv run --frozen mypy` |
@@ -170,16 +175,29 @@ same thing in a clone.
 | `dependency-review` | none, it reads the diff against an advisory database on the server |
 
 The decision record rule runs inside `lint` rather than under a name of its own,
-which is why no row above carries it. `Scorecard analysis` is not in the table
-because it does not run on a pull request; it runs on the default branch and on a
-schedule.
+and so does the rule that holds this table against the workflows, which is why no
+row above carries either. `Scorecard analysis` is not in the table because it does
+not run on a pull request; it runs on the default branch and on a schedule.
 
-Nothing in this tree reads this table. A check renamed, added or removed leaves it
-stale and every route stays green, which is exactly the drift a list written in a
-document always has. Issue #86 is where the mechanism that would refuse a stale
-row is owed. Until it lands, the authority for what runs is
-`.github/workflows/`, and the way to get the strings without trusting this page
-is to read them off an open pull request:
+This table is read, and it is read in both directions:
+
+```
+uv run --frozen python tools/checks_table.py
+```
+
+That command derives the names from the workflow files and refuses a row naming a
+check no workflow produces on a pull request, and a check on a pull request that
+no row names. `zizmor` is the one row it cannot derive, because code scanning
+reports it after the audit job uploads its results rather than a workflow file
+carrying that string, so it is declared as an exception in `tools/checks_table.py`
+and the exception is refused the day a workflow starts producing it.
+
+What the command does not read is the second column. Whether the command beside a
+row decides the same thing the check decides is a judgement, and it is what
+review is for. It also does not evaluate a trigger's filters, so a check that
+appears on some pull requests and not others still owes a row. The way to get the
+strings without trusting either the table or that command is to read them off an
+open pull request:
 
 ```
 gh api repos/iderex/rechenstrasse/commits/<head sha>/check-runs \

@@ -1,6 +1,11 @@
-# The check named `lint`. Two rules under one name, which is what #17 asks for:
-# the linter over the Python this tree writes, and the decision record rule of
-# #1 over docs/decisions/.
+# The check named `lint`. Three rules under one name: the linter over the Python
+# this tree writes, which is what #17 asks for, the decision record rule of #1
+# over docs/decisions/, and the rule of #86 that holds the table of checks in
+# CONTRIBUTING.md against the workflow files.
+#
+# The third one is here rather than under a name of its own for a reason it is
+# worth stating: a check named in the table would be a check that has to name
+# itself, and the row it owed would be the first thing it refused.
 #
 # The job name is exactly `lint`, in lowercase, because #23 requires that
 # literal string on the branch that receives merges and a check context that
@@ -106,5 +111,37 @@ jobs:
             exit 1
           fi
           grep -q 'section-missing' proof.log
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: Prove the checks-table rule bites
+        run: uv run --frozen python tools/test_checks_table.py
+
+      - name: The table of checks matches the workflows
+        run: uv run --frozen python tools/checks_table.py .
+
+      - name: Prove this check refuses a table missing a row
+        # A copy of the tree with one row deleted from the table and nothing
+        # else touched, so the copy's only defect is the missing row. This is
+        # the direction with the cost: a check runs on a pull request and the
+        # document a contributor looks it up in does not mention it. The
+        # identifier is asserted, not merely a non-zero exit, because two arms
+        # read the same two inputs and a row that went away is also a check
+        # nothing names.
+        run: |
+          set -euo pipefail
+          rm -rf ../missing-row-proof
+          mkdir -p ../missing-row-proof
+          cp -R .github ../missing-row-proof/
+          grep -q '^| `Dependency floor` |' CONTRIBUTING.md
+          grep -v '^| `Dependency floor` |' CONTRIBUTING.md \
+            > ../missing-row-proof/CONTRIBUTING.md
+          if uv run --frozen python tools/checks_table.py \
+               ../missing-row-proof > proof.log 2>&1; then
+            echo "the rule accepted a table with a row removed" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'unnamed-check' proof.log
           echo "refused, as it should:"
           cat proof.log
