@@ -187,19 +187,29 @@ class TheNamesComeFromTheWorkflows(unittest.TestCase):
         self.assertEqual(["undecidable-workflow"], kinds(found))
 
 
+EXCEPTED = [name for name, _ in checks_table.NOT_FROM_A_WORKFLOW]
+
+
 class TheTwoDirections(unittest.TestCase):
+    """The two arms of the done-condition, each with the nearest passing case.
+
+    Every row set below carries the register's own names, derived from the
+    register rather than written out, so an entry added to it does not red these
+    tests for a reason none of them is about.
+    """
+
     def test_a_matching_pair_refuses_nothing(self) -> None:
         self.assertEqual(
             [],
             checks_table.failures(
-                ["an example check", "zizmor"],
+                ["an example check", *EXCEPTED],
                 {"an example check": ".github/workflows/example.yml"},
             ),
         )
 
     def test_a_row_naming_a_check_that_does_not_run_is_refused(self) -> None:
         found = checks_table.failures(
-            ["an example check", "a check that went away", "zizmor"],
+            ["an example check", "a check that went away", *EXCEPTED],
             {"an example check": ".github/workflows/example.yml"},
         )
         self.assertEqual(["stale-row"], kinds(found))
@@ -207,7 +217,7 @@ class TheTwoDirections(unittest.TestCase):
 
     def test_a_check_that_no_row_names_is_refused(self) -> None:
         found = checks_table.failures(
-            ["an example check", "zizmor"],
+            ["an example check", *EXCEPTED],
             {
                 "an example check": ".github/workflows/example.yml",
                 "a check that arrived": ".github/workflows/new.yml",
