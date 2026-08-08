@@ -12,3 +12,10 @@ dist/
 # Tool caches, derived from the tree and rebuilt on demand.
 .mypy_cache/
 .ruff_cache/
+
+# Where the measurement of #15 writes what it counted. A data file about one run
+# on one machine, which is not a fact about this tree, and it appears in the
+# working copy the first time anybody measures the suite.
+.coverage
+.coverage.*
+
