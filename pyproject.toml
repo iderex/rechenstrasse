@@ -26,7 +26,22 @@ quality = [
     # rules are about the structure of a document rather than about its text,
     # and an indentation-counting approximation of a parser is the thing that
     # passes a file it should have refused.
-    "pyyaml>=6,<7",
+    #
+    # 6.0.2 is the oldest release publishing a wheel for the interpreter series
+    # in requires-python. The bound here used to admit 6.0, which has no wheel
+    # for that series and whose source build fails on this interpreter, so the
+    # declared minimum was one nobody could restore and the whole group went
+    # untested at its floor. That is what issue #84 was opened about. This is an
+    # extension module, so which release installs is a property of the release
+    # rather than of the code that imports it, and the floor moves again the day
+    # the interpreter series does.
+    "pyyaml>=6.0.2,<7",
+    # The stubs the type checker reads for the package above, left at the series
+    # floor rather than moved with it. This is a pure-Python distribution with
+    # one wheel for every interpreter, so the pinned build narrows nothing here:
+    # 6.0.0 restores on it and the type checker accepts the tree against those
+    # stubs. #84 asked whether the same repair was owed on this line, and the
+    # answer is measured rather than assumed.
     "types-pyyaml>=6,<7",
 ]
 # The harness of #14. A floor rather than a pin, the same as everything else

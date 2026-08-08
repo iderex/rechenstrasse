@@ -158,7 +158,7 @@ same thing in a clone.
 | `format` | `uv run --frozen ruff format --check` |
 | `typecheck` | `uv run --frozen mypy` |
 | `Enforce greppable invariants` | `uv run --frozen python tools/invariants.py` |
-| `Dependency floor` | `uv lock --resolution lowest-direct`, then `uv sync --frozen --no-group quality`, then `uv run --frozen --no-group quality pytest -q`, in a copy of the tree |
+| `Dependency floor` | `uv lock --resolution lowest-direct`, then `uv sync --frozen`, then `uv run --frozen pytest -q -m ""`, in a copy of the tree |
 | `Locked environment restores (ubuntu-latest)` | `uv sync --locked` |
 | `Locked environment restores (macos-latest)` | the same, on that platform |
 | `Locked environment restores (windows-latest)` | the same, on that platform |
