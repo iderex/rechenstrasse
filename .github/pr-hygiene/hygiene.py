@@ -26,10 +26,13 @@ that a message has a body at all, and that the body is more than the trailers
 git and the sign-off gate put there, which is the arm above. The rest is what
 review is for, and this file does not pretend to cover it.
 
-The generated set below is patterns rather than paths, because no generated file
-is tracked in this repository yet. Every arm of that check is proven against
-fixtures in test_hygiene.py and none of them has ever fired on a real file in
-this tree. A pull request declares a legitimate regeneration with a line
+The generated set below is patterns rather than paths, so a file this tree has
+not adopted yet is covered on the day it arrives instead of on the day somebody
+remembers. This said no tracked file matched the set, which stopped being true
+when the toolchain of #13 landed uv.lock. One tracked file matches it today and
+the test in test_hygiene.py names that file, so the sentence and the tree are
+checked against each other rather than drifting apart. Every arm is still proven
+against fixtures. A pull request declares a legitimate regeneration with a line
 "Regenerated: <path>" in its body, one per file, which is what separates a
 regenerated file from a hand-edited one without asking anybody's opinion.
 
