@@ -71,6 +71,16 @@ uv run python tools/decision_records.py docs/decisions
 uv run python tools/test_decision_records.py
 ```
 
+A fourth check reads the invariants a single file decides on its own, under the
+name `Enforce greppable invariants`. What the rules are and what each one
+prevents is in `tools/invariants.py` rather than in a document, because a rule
+restated in prose drifts against the code that decides it:
+
+```
+uv run python tools/invariants.py
+uv run python tools/test_invariants.py
+```
+
 What these do not cover. The formatter reads the Python and nothing else, so the
 workflow files and the documents in this tree are laid out by hand. The three
 commands also skip `.github/pr-hygiene/`, which is a standard-library module

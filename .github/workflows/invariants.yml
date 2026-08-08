@@ -1,0 +1,86 @@
+# The check named `Enforce greppable invariants`. Issue #19. Four rules that a
+# single file decides on its own, which makes them the cheapest enforcement in
+# the tree and leaves no excuse for any of them living only in a document.
+#
+# The job name is exactly the string #23 requires on the branch that receives
+# merges. A context that does not match the required name blocks every merge
+# instead of guarding one.
+#
+# What the rules are, what each one prevents and which paths each one reads is
+# in tools/invariants.py, not here. A rule written into a workflow string is a
+# rule nothing can test.
+#
+# Three steps. The suite first, because a guard whose proof is not run on the
+# same commit that runs the guard is a guard nobody is checking, and because the
+# suite is where the obligation lives that a rule cannot ship without a fixture.
+# Then the rules over the tree. Then the rules over a file planted in the tree
+# that trips one of them, with the job failing if that file is accepted.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Invariants
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  invariants:
+    name: Enforce greppable invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the source the rules read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        run: uv sync --locked
+
+      - name: Prove every rule bites and none ships without a fixture
+        run: uv run --frozen python tools/test_invariants.py
+
+      - name: The tree passes every invariant
+        run: uv run --frozen python tools/invariants.py
+
+      - name: Prove this check refuses a file that trips a rule
+        # A float literal in a module above the evaluation boundary, planted in
+        # a copy of the tree rather than in the tree itself. The fixtures in the
+        # suite prove the rule; this proves the wiring, which is a different
+        # thing and the one that is silently absent when a check is decorative.
+        run: |
+          set -euo pipefail
+          rm -rf ../invariant-proof
+          cp -R . ../invariant-proof
+          rm -rf ../invariant-proof/.venv
+          planted=../invariant-proof/src/rechenstrasse/ppn/planted.py
+          printf '"""Planted above the boundary."""\n\nGAMMA = 2.3e-5\n' > "$planted"
+          if uv run --frozen python tools/invariants.py ../invariant-proof \
+               > proof.log 2>&1; then
+            echo "a float literal above the boundary was accepted" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'no-float-above-the-boundary' proof.log
+          echo "refused, as it should:"
+          cat proof.log
