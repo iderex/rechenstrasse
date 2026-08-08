@@ -1,0 +1,29 @@
+# The mutation run of issue #50. Read from the repository root, so every path
+# in it is relative to that.
+#
+# The surface is the one the measurement of #15 reads, from `[tool.coverage.run]`
+# in pyproject.toml, because the question this run asks is about the same code:
+# coverage says a line ran, and this says a test would have noticed if the line
+# were wrong. The bar on that surface is #49 and is a separate thing from either
+# number.
+#
+# The test command goes through `uv run` rather than calling `python` directly,
+# and that is not decoration. The runner starts the command as a subprocess of
+# whichever interpreter it is running under, which is the base interpreter and
+# not the project environment, so a bare `python -m pytest` cannot import pytest
+# at all. Every mutant then exits non-zero, every one is recorded as killed, and
+# the run reports a perfect score having measured nothing. That is what
+# `cosmic-ray baseline` refuses, which is why the job runs it before anything
+# else.
+#
+# `--no-sync` so the command cannot quietly rebuild the environment between one
+# mutant and the next, and `-x` so a mutant that a test catches stops the suite
+# there rather than running the rest for a verdict already reached.
+[cosmic-ray]
+module-path = "src/rechenstrasse"
+timeout = 120.0
+excluded-modules = []
+test-command = "uv run --frozen --no-sync python -m pytest -x -q tests"
+
+[cosmic-ray.distributor]
+name = "local"

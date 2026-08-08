@@ -40,7 +40,7 @@ this board does not have it and says why.
 | Pull request hygiene | `Deterministic PR-hygiene checks` | adopted | `Deterministic PR-hygiene checks` | in the tree, #20 |
 | Supply chain self-audit | `Scorecard analysis` | adopted | `Scorecard analysis` | in the tree |
 | Coverage bar | a step inside `build` | adapted | a bar on the surface that decides an answer | #49 |
-| Mutation testing | `Mutation testing (${{ matrix.scope.name }})` | adopted | scheduled, reported, not gating | #50 |
+| Mutation testing | `Mutation testing (${{ matrix.scope.name }})` | adapted | `Mutation testing`, scheduled and not gating | #50 |
 | Fuzzing | `Fuzz ${{ matrix.target }}` | adapted | fuzzing narrowed to the document parser | #51 |
 | End to end harness | `E2E Login Harness`, job `e2e` | absent | the parity run stands in its place | #42 |
 | Distribution manifest freshness | `Assert manifest-beta lists the newest beta release per generation` | absent | none | returns with #12 |
@@ -81,6 +81,22 @@ The coverage bar is adapted because the target pins it on the modules that
 decide authentication outcomes, and this board has no such modules, so it is
 pinned on the modules that decide an answer, which are the admissibility gate,
 the variation stage, the expansion stage and the parity comparison.
+
+Mutation testing is adapted because the target runs it as a matrix over named
+scopes and this board runs it once over the surface the measurement of #15
+reads. It reports and does not gate, the same as there. What fails here is a run
+that could not be completed, which is the failure that otherwise reads as a
+perfect score over nothing.
+
+The score is not written into this document, because a number pasted into prose
+is a number that stops being true without anything noticing. It is produced by
+the `Mutation testing` check and kept as a run artefact, and the newest one is
+read with
+
+    gh run list --workflow Mutation --limit 1
+    gh run download <run id> --name mutation
+
+which gives the score line and the report the survivors are listed in.
 
 Fuzzing is adapted by being narrowed to the document parser, since that is the
 only place this pipeline reads a file somebody else wrote.
