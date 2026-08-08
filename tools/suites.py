@@ -84,6 +84,15 @@ SUITES: tuple[Suite, ...] = (
         ),
     ),
     Suite(
+        name="the checks-table rule's own proof",
+        command="uv run python tools/test_checks_table.py",
+        paths=("tools/test_checks_table.py",),
+        because=(
+            "it is a unittest suite the `lint` check runs beside the rule it "
+            "proves, and pytest never reads it"
+        ),
+    ),
+    Suite(
         name="the invariants rules' own proof",
         command="uv run python tools/test_invariants.py",
         paths=("tools/test_invariants.py",),
