@@ -1,0 +1,269 @@
+# The checks named `Build wheel` and `Generate SBOM`. Issue #52. The two legs
+# that make the distribution real before a release depends on it.
+#
+# Building is not the interesting half. Every other check in this tree reads the
+# source, and a package that builds from that source and cannot be installed
+# fails nowhere else and reaches a user as an install that does not work. So the
+# first job builds the wheel, installs it into an environment that has nothing
+# else in it, and runs it from outside the checkout, where the source tree
+# cannot be what answered.
+#
+# The second job never checks this repository out. Its only input is the file
+# the first job built, and that is what makes its bill of materials a statement
+# about the artefact rather than about the tree: there is no tree in the job to
+# have described by accident. It asserts that the document names exactly the
+# distributions the artefact's own environment holds and nothing besides.
+#
+# What neither job runs is the worked example, because there is no worked
+# example. `python -m rechenstrasse --version` is the only thing an installed
+# copy can be asked to do today, and it is what #13 put there to tell a build
+# that came out right from one that did not. The example is #61 and the leg that
+# runs it from the built artefact is #64. The closing step of each job prints
+# that, so a green run cannot be read as having exercised a pipeline.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job that needs it.
+name: Artefact
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wheel:
+    name: Build wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the source the distribution is built from
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Build the wheel from the checkout
+        run: uv build --wheel
+
+      - name: Install it into an environment that has nothing else
+        # The environment is made fresh and gets the wheel and whatever the
+        # wheel says it needs. Nothing from the development graph reaches it,
+        # so a module that only resolved because a dev tool had pulled it in is
+        # a failure here.
+        run: |
+          set -euo pipefail
+          uv venv "$RUNNER_TEMP/clean"
+          uv pip install --python "$RUNNER_TEMP/clean/bin/python" dist/*.whl
+
+      - name: Run the installed copy, from outside the checkout
+        # `cd` first, on purpose. Run inside the checkout and a passing command
+        # is not evidence about the distribution, because the source is sitting
+        # right there.
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/clean/bin/python" -m rechenstrasse --version
+
+      - name: Prove this check refuses a distribution with a module missing
+        # The mistake somebody actually makes is not deleting a file. It is a
+        # build configuration that stops carrying one, which every check that
+        # reads the source stays green through. So the plant is made in the
+        # build configuration of a copy of the tree, and the module it drops is
+        # the one the entry point imports.
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/incomplete"
+          cp -R . "$RUNNER_TEMP/incomplete"
+          rm -rf "$RUNNER_TEMP/incomplete/dist"
+          python3 - "$RUNNER_TEMP/incomplete/pyproject.toml" <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text(encoding="utf-8")
+          anchor = 'packages = ["src/rechenstrasse"]'
+          if anchor not in text:
+              raise SystemExit(f"the wheel target moved; {anchor!r} is not in {path}")
+          path.write_text(
+              text.replace(
+                  anchor, anchor + '\nexclude = ["src/rechenstrasse/cli.py"]'
+              ),
+              encoding="utf-8",
+          )
+          PY
+          cd "$RUNNER_TEMP/incomplete"
+          uv build --wheel
+          uv venv "$RUNNER_TEMP/incomplete-env"
+          uv pip install --python "$RUNNER_TEMP/incomplete-env/bin/python" dist/*.whl
+          cd "$RUNNER_TEMP"
+          if "$RUNNER_TEMP/incomplete-env/bin/python" -m rechenstrasse --version \
+               > proof.log 2>&1; then
+            echo "a distribution missing a module it imports was accepted" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q "No module named 'rechenstrasse.cli'" proof.log
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: Keep the wheel for the bill of materials
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+      - name: What this run did not cover
+        # Last, so the end of the log is the disclosure and not a step after it.
+        run: |
+          echo "no worked example was run: there is none, and the command this"
+          echo "job runs prints a version. issues #61 and #64 hold that."
+          echo "the wheel was built and installed on this platform only."
+          echo "the source distribution is not built or installed here."
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: wheel
+    permissions:
+      # Read the artefact this run produced, and nothing else. `contents` is
+      # not granted, so this job cannot read the repository even by mistake,
+      # which is the whole of what makes its document a statement about the
+      # file rather than about the tree.
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Take the wheel the build produced
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheel
+          path: dist
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Install that file into an environment that has nothing else
+        # The interpreter comes out of the wheel's own metadata. There is no
+        # checkout here to read `.python-version` from, and typing a version
+        # into this file would be the same number in two places, drifting the
+        # day the tree moves. Reading it off the artefact also keeps the job
+        # honest: the environment is the one the artefact says it needs.
+        run: |
+          set -euo pipefail
+          floor="$(python3 - dist <<'PY'
+          import pathlib
+          import re
+          import sys
+          import zipfile
+
+          wheels = sorted(pathlib.Path(sys.argv[1]).glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected one wheel, got {[w.name for w in wheels]}")
+          with zipfile.ZipFile(wheels[0]) as archive:
+              names = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
+              if len(names) != 1:
+                  raise SystemExit(f"expected one METADATA, got {names}")
+              metadata = archive.read(names[0]).decode("utf-8")
+          declared = re.search(r"^Requires-Python:\s*(.+)$", metadata, re.MULTILINE)
+          if declared is None:
+              raise SystemExit("the wheel declares no Requires-Python")
+          lower = re.search(r">=\s*(\d+\.\d+)", declared.group(1))
+          if lower is None:
+              raise SystemExit(f"no lower bound in {declared.group(1)!r}")
+          print(lower.group(1))
+          PY
+          )"
+          echo "the wheel asks for at least Python $floor"
+          uv venv --python "$floor" "$RUNNER_TEMP/artefact"
+          uv pip install --python "$RUNNER_TEMP/artefact/bin/python" dist/*.whl
+
+      - name: Produce the bill of materials for that environment
+        # Pinned by version rather than floated, the same as the other tool this
+        # tree fetches at run time. `--output-reproducible` drops the timestamp
+        # and the random serial, so two runs over one artefact give one
+        # document, and `--validate` refuses output that is not the schema it
+        # claims to be.
+        env:
+          CYCLONEDX_VERSION: "7.3.1"
+        run: |
+          set -euo pipefail
+          uvx --no-build --from "cyclonedx-bom==${CYCLONEDX_VERSION}" \
+            cyclonedx-py environment "$RUNNER_TEMP/artefact/bin/python" \
+            --of JSON --output-reproducible --validate -o sbom.json
+
+      - name: The document names the artefact and its environment, and nothing else
+        # Both directions. A component the environment does not hold is an
+        # invention; a distribution in the environment that the document skips
+        # is the gap a dependency question later falls into. Neither list is
+        # written here: one comes out of the document, the other out of the
+        # environment it was taken from.
+        run: |
+          set -euo pipefail
+          uv pip list --python "$RUNNER_TEMP/artefact/bin/python" --format json \
+            > installed.json
+          python3 - sbom.json installed.json dist <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          sbom = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          installed = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+          wheels = sorted(pathlib.Path(sys.argv[3]).glob("*.whl"))
+
+          described = {(c["name"], c["version"]) for c in sbom.get("components", [])}
+          present = {(d["name"], d["version"]) for d in installed}
+          if described != present:
+              print("only in the document:", sorted(described - present))
+              print("only in the environment:", sorted(present - described))
+              raise SystemExit("the bill of materials is not this environment")
+
+          if len(wheels) != 1:
+              raise SystemExit(f"expected one wheel, got {[w.name for w in wheels]}")
+          name, version, _ = wheels[0].name.split("-", 2)
+          if (name, version) not in described:
+              raise SystemExit(
+                  f"the document does not name {name} {version}, "
+                  f"which is the file it was made from"
+              )
+          print(f"{len(described)} component(s), and {name} {version} is one of them")
+          for component in sorted(described):
+              print("  ", *component)
+          PY
+
+      - name: Keep the bill of materials
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom.json
+          if-no-files-found: error
+
+      - name: What this run did not cover
+        run: |
+          echo "the document describes the runtime graph of one wheel on one"
+          echo "platform. it is not a statement about the development graph,"
+          echo "which is what uv.lock holds, and not about a source"
+          echo "distribution, which is not built here."
+          echo "no advisory database was consulted: this run says what is in"
+          echo "the artefact and never whether any of it is known to be bad."
