@@ -1,0 +1,86 @@
+# The check named `lint`. Issue #1 puts the decision record rule here, and issue
+# #17 adds the linter proper beside it, which is why the job is named for the
+# check rather than for the one rule it carries today.
+#
+# The job name is exactly `lint`, in lowercase, because #23 requires that
+# literal string on the branch that receives merges and a check context that
+# does not match the required name blocks every merge instead of guarding one.
+#
+# Three steps, in this order and for this reason. The rule's own suite runs
+# first, because a guard whose proof is not run on the same commit that runs the
+# guard is a guard nobody is checking. Then the rule runs over the tree. Then
+# the rule runs over a deliberately broken copy of the tree, and the job fails
+# if that copy passes: without it, this check is green whether the rule refuses
+# anything or not, which is the failure the issue is about.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the records and the rule that reads them
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        # The same command the README documents, so this job runs the rule on
+        # the interpreter a contributor runs it on rather than on whatever the
+        # runner image happens to carry.
+        run: uv sync --locked
+
+      - name: Prove the decision record rule bites
+        run: uv run --frozen python tools/test_decision_records.py
+
+      - name: The decision records are in shape
+        run: uv run --frozen python tools/decision_records.py docs/decisions
+
+      - name: Prove this check refuses a record with a section missing
+        # One heading is deleted from one record and nothing else is touched, so
+        # the copy's only defect is the missing field. If the rule accepts it,
+        # the check is decorative and this step says so.
+        run: |
+          set -euo pipefail
+          rm -rf ../missing-section-proof
+          cp -R docs/decisions ../missing-section-proof
+          victim=../missing-section-proof/0001-the-shape-of-a-decision-record.md
+          grep -q '^## Ruled out$' "$victim"
+          sed '/^## Ruled out$/d' "$victim" > "$victim.edited"
+          mv "$victim.edited" "$victim"
+          if uv run --frozen python tools/decision_records.py \
+               ../missing-section-proof > proof.log 2>&1; then
+            echo "the rule accepted a record with a required section removed" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'section-missing' proof.log
+          echo "refused, as it should:"
+          cat proof.log
