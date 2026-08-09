@@ -214,6 +214,80 @@ def of(text: str) -> dict[str, Position]:
     return positions(loaded, text)
 
 
+def deeper_than(text: str, limit: int) -> Position | None:
+    """Where the text nests past `limit`, or nothing if it never does.
+
+    Read before the loader rather than after it, which is the whole reason this
+    is here. Reading a document is recursive in the loader and recursive in the
+    walk above, so a document nested deeply enough exhausts the stack, and a
+    stack that runs out is a crash and not an answer. Refusing on a depth this
+    tree can state is the form that never gets near the interpreter's limit.
+
+    A brace inside a string nests nothing, so strings are skipped with their
+    escapes. Nothing else in a document can carry one of the four characters
+    counted here.
+
+    This is not a parser and does not judge whether the brackets match. Text
+    that is not a document at all is the loader's refusal to make, and this runs
+    first only because that refusal recurses too.
+    """
+    depth = 0
+    line = 1
+    column = 1
+    at = 0
+    inside = False
+    escaped = False
+    while at < len(text):
+        character = text[at]
+        if inside:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                inside = False
+        elif character == '"':
+            inside = True
+        elif character in "{[":
+            depth += 1
+            if depth > limit:
+                return Position(line=line, column=column)
+        elif character in "}]":
+            depth -= 1
+        at += 1
+        if character == "\n":
+            line += 1
+            column = 1
+        else:
+            column += 1
+    return None
+
+
+def spelled_at(text: str, needle: str, occurrence: int) -> Position | None:
+    """Where the nth occurrence of a piece of text begins, or nothing.
+
+    A search and not a parse, and it is used for one thing: a key written twice
+    in one mapping. The loader reports which key that was and not where, because
+    by the time it can tell, the first of the two is already gone.
+
+    The bound is the bound of a search. It finds the nth place that spelling
+    appears in the bytes, which is the right place in a document written the way
+    every document in this tree is written, and is the wrong place where the same
+    spelling sits inside a string value earlier in the file. A refusal that
+    points at the wrong line is worse than one that points at the document, so
+    the caller falls back to the document when this finds nothing at all.
+    """
+    at = -1
+    for _ in range(occurrence):
+        at = text.find(needle, at + 1)
+        if at < 0:
+            return None
+    return Position(
+        line=text.count("\n", 0, at) + 1,
+        column=at - (text.rfind("\n", 0, at) + 1) + 1,
+    )
+
+
 def nearest(index: dict[str, Position], path: str) -> Position:
     """The position for a path, or for the closest part of the document above it.
 

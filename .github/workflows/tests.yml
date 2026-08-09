@@ -104,14 +104,18 @@ jobs:
         # data file, so the measurement the bar was taken over is not
         # overwritten by the proof.
         #
-        # Two suites and not one, and the reason is the bound of a bar taken
-        # over a surface rather than per file. This proof left out the gate's
-        # suite alone until the reader joined the surface, and the number then
-        # came out at 92.29 percent, above the bar: one entry's coverage is a
-        # smaller share of the aggregate every time the surface grows, so a
-        # proof that leaves out one suite gets weaker without being edited. What
-        # is still proved here is that a measurement below the bar is refused.
-        # What is no longer proved is that losing any single suite reaches it.
+        # Every suite that reaches a surface entry, and not one of them, and the
+        # reason is the bound of a bar taken over a surface rather than per
+        # file. This proof left out the gate's suite alone until the reader
+        # joined the surface, and the number then came out at 92.29 percent,
+        # above the bar: one entry's coverage is a smaller share of the
+        # aggregate every time the surface grows, so a proof that leaves out one
+        # suite gets weaker without anybody editing it. Leaving out every suite
+        # that reaches the surface is the form that does not, because a suite
+        # added later either reaches the surface and belongs in this list, or
+        # does not and changes nothing here. What is still proved is that a
+        # measurement below the bar is refused. What is not proved is that
+        # losing any single suite reaches below it.
         #
         # The identifier is asserted rather than a non-zero exit, because three
         # arms read the same bytes and a report that measured nothing is also a
@@ -120,7 +124,8 @@ jobs:
           set -euo pipefail
           uv run --frozen coverage run --data-file=.coverage.below -m pytest -q \
             --ignore=tests/rechenstrasse/test_admissibility.py \
-            --ignore=tests/rechenstrasse/test_reader.py > /dev/null
+            --ignore=tests/rechenstrasse/test_reader.py \
+            --ignore=tests/test_fuzz_corpus.py > /dev/null
           uv run --frozen coverage json --data-file=.coverage.below \
             -o ../under-the-bar.json -q
           if uv run --frozen python tools/coverage_bar.py \

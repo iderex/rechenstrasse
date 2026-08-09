@@ -193,7 +193,15 @@ same thing in a clone.
 The decision record rule runs inside `lint` rather than under a name of its own,
 and so does the rule that holds this table against the workflows, which is why no
 row above carries either. `Scorecard analysis` is not in the table because it does
-not run on a pull request; it runs on the default branch and on a schedule.
+not run on a pull request; it runs on the default branch and on a schedule. Nor is
+`Fuzz the document reader`, for the same reason: it runs on a schedule and on a
+manual start, because a campaign short enough to sit on a pull request is too
+short to find anything. What that job does on every change instead is the seed
+corpus replay, which runs inside `tests`:
+
+```
+uv run --frozen python tools/fuzz.py --replay
+```
 
 This table is read, and it is read in both directions:
 

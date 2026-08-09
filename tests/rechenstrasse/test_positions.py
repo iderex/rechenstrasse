@@ -162,3 +162,48 @@ def test_an_escaped_quote_inside_a_key_does_not_end_the_string() -> None:
     found = positions.positions(json.loads(text), text)
     assert set(found) == {"", 'a"b', "c"}
     assert found["c"].column == text.index('"c"') + 1
+
+
+def test_the_depth_scan_finds_where_a_text_nests_past_a_limit() -> None:
+    found = positions.deeper_than("[[[[]]]]", 3)
+    assert found == positions.Position(line=1, column=4)
+
+
+def test_the_depth_scan_says_nothing_about_a_text_that_stays_under() -> None:
+    assert positions.deeper_than(DOCUMENT, 4) is None
+    assert positions.deeper_than("", 1) is None
+
+
+def test_the_depth_scan_counts_down_again_on_the_way_out() -> None:
+    """Sibling structures at one level are not depth, which a counter that only
+    goes up would call depth."""
+    assert positions.deeper_than("[[],[],[],[],[]]", 2) is None
+
+
+def test_a_bracket_inside_a_string_nests_nothing() -> None:
+    """The one case a scan gets wrong by not knowing where a string is."""
+    assert positions.deeper_than('{"a": "[[[[[[[[[["}', 2) is None
+
+
+def test_an_escaped_quote_does_not_end_a_string_for_the_depth_scan_either() -> None:
+    assert positions.deeper_than('{"a\\"[[[[[": 1}', 2) is None
+
+
+def test_the_depth_scan_counts_lines_on_the_way_through() -> None:
+    found = positions.deeper_than('{\n  "a": [\n    [\n      [1]\n]]}', 3)
+    assert found is not None
+    assert found.line == 4
+
+
+def test_a_spelling_is_found_at_the_occurrence_asked_for() -> None:
+    text = '{\n  "a": 1,\n  "a": 2\n}\n'
+    first = positions.spelled_at(text, '"a"', 1)
+    second = positions.spelled_at(text, '"a"', 2)
+    assert first is not None and second is not None
+    assert (first.line, first.column) == (2, 3)
+    assert (second.line, second.column) == (3, 3)
+
+
+def test_a_spelling_that_is_not_there_that_often_is_not_invented() -> None:
+    assert positions.spelled_at('{"a": 1}', '"a"', 2) is None
+    assert positions.spelled_at('{"a": 1}', '"b"', 1) is None

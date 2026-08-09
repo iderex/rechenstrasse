@@ -1,0 +1,105 @@
+# The scheduled fuzz run of issue #51. It mutates the seed corpus and calls the
+# document reader until it has done the rounds it was given, and it keeps any
+# input the reader did not survive.
+#
+# On a schedule and on a manual start, and on nothing else. A fuzz campaign long
+# enough to be worth anything is exactly what record 0009 keeps out of the run
+# that happens on every change, and a job that appeared on a pull request would
+# either be too short to find anything or too long to wait for. The other half of
+# #51, the seed corpus replay, is fast and bounded and runs inside `tests` on
+# every change, which is where a fixed crash is stopped from coming back.
+#
+# There is deliberately no row for this in the checks table in CONTRIBUTING.md.
+# That table is the checks a pull request carries, this produces none, and
+# `tools/checks_table.py` derives its side of the comparison from the workflows
+# that run on a pull request.
+#
+# The environment is the default one of record 0009 with nothing relaxed: no
+# display, no elevation, no network. The harness imports nothing that can reach
+# the network, which `no-networking-import` refuses in `tools/`, and it reads no
+# fixture from outside the repository. The step below asks for no token beyond
+# reading the tree.
+#
+# What a red result here means. The job replays the corpus first and fails if an
+# entry that is supposed to be refused crashes the reader, which is a regression
+# rather than a finding. After that it fuzzes, and a crash it finds is written
+# into the run's own directory and uploaded, with the seed and the round printed
+# beside it so the input can be produced again from two numbers in a clone.
+# Issue #51 fixes what happens next: the input becomes a fixture in
+# `fuzz/crashes/` before the crash is fixed, never afterwards, because a fixture
+# written from the repair is a fixture written from the wrong thing.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Fuzz
+
+on:
+  schedule:
+    # Weekly, and offset from the hour like the other scheduled job here so two
+    # of them do not queue behind each other on a shared runner pool.
+    - cron: "41 3 * * 2"
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: how many mutated inputs to put through the reader
+        default: "2000000"
+      seed:
+        description: the number every mutation is derived from
+        default: "0"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fuzz:
+    name: Fuzz the document reader
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read # check out the tree the corpus and the reader live in
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        run: uv sync --locked
+
+      - name: Replay the corpus before fuzzing anything
+        # First, so that a run which finds nothing new is still a run that said
+        # the corpus is intact. A campaign started over a corpus that stopped
+        # being read is a campaign fuzzing nothing.
+        run: uv run --frozen python tools/fuzz.py --replay
+
+      - name: Fuzz the reader
+        env:
+          ROUNDS: ${{ inputs.rounds || '2000000' }}
+          SEED: ${{ inputs.seed || '0' }}
+        run: |
+          set -euo pipefail
+          uv run --frozen python tools/fuzz.py \
+            --rounds "$ROUNDS" --seed "$SEED" --write "$RUNNER_TEMP/crashes"
+
+      - name: Keep whatever it found
+        # On failure only, because the step above exits non-zero exactly when it
+        # kept something. An always-run upload of an empty directory is how a
+        # green artefact list stops meaning anything.
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crashes
+          path: ${{ runner.temp }}/crashes
+          if-no-files-found: ignore
