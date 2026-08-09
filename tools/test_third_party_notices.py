@@ -90,13 +90,21 @@ class TheTreeAsItStands(unittest.TestCase):
 
 
 class ANoticeThatDrifted(unittest.TestCase):
-    """Each arm against a notice one edit away from the real one."""
+    """Each arm against a notice one edit away from the one in the tree.
+
+    The base is the tracked notice rather than a freshly rendered one, and that
+    is not a convenience. Rendering needs terms for every row, which an
+    environment missing a platform-conditional distribution cannot supply, so a
+    suite that rendered its own base would be a suite that only runs on one
+    operating system. Planting into the file that is actually in the tree is
+    also the closer fixture: it is the document a person edits by hand.
+    """
 
     def setUp(self) -> None:
         self.document = notices.lock(read(LOCK))
         self.rows = notices.rows(self.document)
         self.terms = notices.installed(row.name for row in self.rows)
-        self.written = notices.render(self.rows, self.terms)
+        self.written = read(NOTICE)
 
     def refusals(self, planted: str) -> list[str]:
         return notices.differences(self.rows, self.terms, planted)
@@ -108,6 +116,7 @@ class ANoticeThatDrifted(unittest.TestCase):
             f"| `{victim.name}` | {victim.version} |",
             f"| `{victim.name}` | {victim.version}1 |",
         )
+        self.assertNotEqual(self.written, planted)
         self.assertEqual(["version"], kinds(self.refusals(planted)))
 
     def test_a_row_that_went_away_is_refused(self) -> None:
@@ -115,6 +124,7 @@ class ANoticeThatDrifted(unittest.TestCase):
         planted = "\n".join(
             line for line in self.written.splitlines() if f"`{victim.name}`" not in line
         )
+        self.assertNotEqual(self.written, planted)
         self.assertEqual(["group", "missing"], kinds(self.refusals(planted)))
 
     def test_a_row_the_lock_does_not_hold_is_refused(self) -> None:
@@ -126,6 +136,7 @@ class ANoticeThatDrifted(unittest.TestCase):
             "| --- | --- | --- |\n| `a-distribution-nobody-installs` | 1.0 | MIT |",
             1,
         )
+        self.assertNotEqual(self.written, planted)
         self.assertEqual(["stale"], kinds(self.refusals(planted)))
 
     def test_terms_that_contradict_the_environment_are_refused(self) -> None:
@@ -134,20 +145,24 @@ class ANoticeThatDrifted(unittest.TestCase):
             f"| `{victim.name}` | {victim.version} | {self.terms[victim.name]} |",
             f"| `{victim.name}` | {victim.version} | Public domain |",
         )
+        self.assertNotEqual(self.written, planted)
         self.assertEqual(["terms"], kinds(self.refusals(planted)))
 
     def test_a_distribution_under_the_wrong_heading_is_refused(self) -> None:
         # The one a row comparison alone would not see. A distribution that
         # moved from the development group into the runtime graph changes what
-        # an installed copy carries, and its row is identical either way.
+        # an installed copy carries, and its row is identical either way. Moved
+        # on the lock side rather than in the document, because the assertion is
+        # that the two disagreeing is refused and the direction does not matter.
         moved = [
             notices.Row(row.name, row.version, notices.RUNTIME)
             if row.group == notices.DEVELOPMENT
             else row
             for row in self.rows
         ]
-        planted = notices.render(moved, self.terms)
-        self.assertEqual(["group"], kinds(self.refusals(planted)))
+        self.assertNotEqual(self.rows, moved)
+        found = notices.differences(moved, self.terms, self.written)
+        self.assertEqual(["group"], kinds(found))
 
     def test_a_distribution_this_environment_lacks_is_unverified(self) -> None:
         absent = self.rows[0].name
