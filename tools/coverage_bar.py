@@ -75,6 +75,15 @@ SURFACE: tuple[Surface, ...] = (
         ),
     ),
     Surface(
+        path="src/rechenstrasse/document/reader.py",
+        because=(
+            "it decides whether a document becomes the action the later stages "
+            "derive from, and an arm of it that nothing exercises is a theory "
+            "reaching the algebra with a mention resolved to the wrong "
+            "declaration or to none"
+        ),
+    ),
+    Surface(
         path="src/rechenstrasse/ppn/bookkeeping.py",
         because=(
             "it decides which terms survive a truncation and at what order, and "
