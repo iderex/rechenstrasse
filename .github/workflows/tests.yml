@@ -130,6 +130,11 @@ jobs:
         # run in their own checks, and this run does not execute them.
         run: |
           set -euo pipefail
+          # The two files the steps above wrote sit under the name pattern
+          # coverage reads parallel data from, and a run that finds them there
+          # warns about a file it cannot use. Removing them keeps that warning
+          # out of a log somebody is meant to read.
+          rm -f .coverage.json .coverage.below
           uv run --frozen coverage run \
             --source=src,tools,tests,native_or_long -m pytest -q > /dev/null
           {
