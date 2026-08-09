@@ -202,6 +202,53 @@ step further out.
 
 ## License
 
-AGPL-3.0, the GNU Affero General Public License version 3. Copyright (C) 2026 Nils Lehnen.
+Copyright (C) 2026 Nils Lehnen. Two sets of terms, because the tree holds two
+kinds of thing, and issue #12 is where that was answered.
 
-See [LICENSE](LICENSE) for the full terms.
+The code is under AGPL-3.0, the GNU Affero General Public License version 3, and
+[LICENSE](LICENSE) carries its full text.
+
+The theory documents in `theories/`, the reference values, and the prose in
+`docs/` and in the documents at the root are under CC BY 4.0, the Creative
+Commons Attribution 4.0 International license. [LICENSE-CONTENT](LICENSE-CONTENT)
+carries its full text, fetched from the source that publishes it:
+
+```
+curl -L https://creativecommons.org/licenses/by/4.0/legalcode.txt
+git show HEAD:LICENSE-CONTENT | sha256sum
+9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411
+```
+
+The digest is of the blob and not of a checkout, and the difference is not
+pedantry. A clone with `core.autocrlf` on hands you the same bytes with a
+carriage return on every line, which digests differently and is the checkout
+speaking rather than the tree.
+
+The reason for the split is what a citing paper needs. A value with a citation is
+content, and attribution in terms a bibliography understands is what CC BY states
+and what a code license does not.
+
+### What this tree installs from somewhere else
+
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists every distribution in
+`uv.lock` with the terms it declares about itself, and it says which of them
+travel with an installed copy and which are only here to work on the tree. It is
+generated rather than written:
+
+```
+uv run --frozen python tools/third_party_notices.py > THIRD-PARTY-NOTICES.md
+```
+
+The same command in its refusing form is what the `lint` check runs, beside the
+proof that it bites, so the file cannot drift from the lock without going red:
+
+```
+uv run --frozen python tools/third_party_notices.py --check THIRD-PARTY-NOTICES.md
+uv run --frozen python tools/test_third_party_notices.py
+```
+
+Writing the notice needs an environment holding every distribution in the lock,
+and it refuses by name where one is missing, because a lock carries entries that
+install on one operating system and not another. Checking it verifies the terms
+column only where the distribution is installed, and prints what it could not
+verify rather than passing over it.

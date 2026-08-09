@@ -36,6 +36,14 @@ source used and the translated value sit next to each other in the fixture that
 holds the value, because a translation kept anywhere else drifts away from the
 value it applies to.
 
+## The terms these documents are under
+
+CC BY 4.0, the Creative Commons Attribution 4.0 International license, whose text
+is in [LICENSE-CONTENT](../LICENSE-CONTENT). That is the answer entry 1 of #12
+gives for the theory documents, the reference values and the prose, and it is not
+the AGPL-3.0 the code is under. A paper reusing one of these documents owes
+attribution and nothing more, which is what a bibliography can express.
+
 ## What schema version 1 cannot say about these theories
 
 A term carries a head and the symbol standing in front of it, and there is no key

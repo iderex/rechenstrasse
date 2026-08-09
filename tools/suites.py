@@ -114,6 +114,15 @@ SUITES: tuple[Suite, ...] = (
         ),
     ),
     Suite(
+        name="the third party notice rule's own proof",
+        command="uv run python tools/test_third_party_notices.py",
+        paths=("tools/test_third_party_notices.py",),
+        because=(
+            "it is a standard library suite the `lint` check runs beside the "
+            "rule it proves, and pytest never reads it"
+        ),
+    ),
+    Suite(
         name="the invariants rules' own proof",
         command="uv run python tools/test_invariants.py",
         paths=("tools/test_invariants.py",),
