@@ -151,9 +151,27 @@ What is measured is the package under `src/rechenstrasse/`, configured in
 `pyproject.toml` so that the number here and the number on a pull request come
 from the same settings. It reads the package and not the whole tree: the rules
 under `tools/` are covered by proofs that run in their own checks, and counting
-them here would report covered work as uncovered. A bar that fails below a number
-is issue #49 and does not exist yet, so today the number is printed and nothing
-refuses a change that lowers it.
+them here would report covered work as uncovered.
+
+That number gates nothing. What gates is a bar pinned on the surface that decides
+an answer, which is a shorter list and is named with a reason per entry in
+`tools/coverage_bar.py`:
+
+```
+uv run coverage json -o .coverage.json -q
+uv run python tools/coverage_bar.py --report .coverage.json
+uv run python tools/test_coverage_bar.py
+```
+
+A number over everything says very little, because a tree can carry a high one
+while the code deciding whether an operator gets an answer is the part nobody
+exercised. The bar fails below its number, on a report it cannot read, on a
+report that matched no line on the surface, and on a surface entry the report
+holds no file for. The last three matter as much as the first: an empty
+measurement passing quietly is how a bar becomes decoration.
+
+The whole-tree number is printed into the run summary of the `tests` check and
+gates nothing.
 
 ## Checks you can run
 
