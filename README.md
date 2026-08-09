@@ -279,3 +279,38 @@ and it refuses by name where one is missing, because a lock carries entries that
 install on one operating system and not another. Checking it verifies the terms
 column only where the distribution is installed, and prints what it could not
 verify rather than passing over it.
+
+## Citing this work
+
+[CITATION.cff](CITATION.cff) is the machine readable form, in Citation File
+Format 1.2.0, and it is what the tools that build a bibliography look for.
+
+**Cite the version you ran, not the project.** A number out of this pipeline is
+a number some version of it produced, and a citation naming the project in
+general tells a reader nothing about which. That is the same property record
+[0007](docs/decisions/0007-what-a-run-records.md) fixes from the other side:
+what a run records is the version, among four other things, precisely so that
+somebody else can produce the same number.
+
+No release carries an identifier of its own yet, so until one does, cite the
+commit. It is exact, it is resolvable, and it says which bytes ran:
+
+```
+git rev-parse HEAD
+```
+
+The provenance the pipeline writes beside a result is the better source for that
+number, because it is the commit that produced the result rather than the one
+checked out when the paper was written.
+
+What changes when a release is cut, so that a reader coming back later is not
+comparing two shapes of citation: the release carries an identifier minted for
+it, [CITATION.cff](CITATION.cff) grows the version, the release date and that
+identifier, and the identifier is what a bibliography entry resolves. Issue #99
+is where that happens, and it also holds what is still missing, an archive
+account and an identifier for the author. The citation file names neither today
+rather than naming an empty one, because a key a bibliography tool resolves to
+nothing is worse than a key that is absent.
+
+The author name in the citation file is held against the copyright line above by
+a case in the suite, so the two cannot come to disagree quietly.
