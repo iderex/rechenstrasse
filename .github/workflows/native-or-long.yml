@@ -1,0 +1,97 @@
+# The check named `native-or-long`. Issue #65, and record 0009, which names the
+# harness. Work a plain runner genuinely cannot do lives in its own harness with
+# its own command and its own check, and is never folded into the default suite by
+# relaxing one of the three things that run needs nothing of: no display, no
+# elevation, no network.
+#
+# The job name is exactly `native-or-long`, which is the name in the record. It
+# says what the work needs rather than calling itself the extended or the full
+# suite, because a suite called full turns the default one into a partial nobody
+# names.
+#
+# This runner has no canonicalisation core compiled for it, and nothing in this
+# tree implements the seam yet either, so the native case is skipped here on every
+# run. That is the outcome the record asks for and it is checked rather than
+# assumed: the run is required to print the skip with its reason, and it is
+# required to have run something, so a harness that quietly collected nothing or
+# skipped everything cannot report green.
+#
+# What decides a skip is native_or_long/seam.py, read off what the seam exposes on
+# the machine the run started on, and its own legs run everywhere. They are the
+# reason this check is worth having on a runner that can run none of the native
+# work.
+#
+# Hardened like the other workflows here: actions SHA-pinned with a version
+# comment, checkout with persist-credentials:false, deny-all permissions at the
+# workflow level with the read scope granted on the job.
+name: Native or long
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-or-long:
+    name: native-or-long
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the harness and the package it exercises
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Restore the locked environment
+        run: uv sync --locked
+
+      - name: The harness runs, and says what it could not run
+        # -rs is part of the command rather than a convenience here. Without it
+        # the reason for a skip is swallowed, and a skip with no reason is
+        # counted in the total and read as a pass.
+        #
+        # Three assertions on the output, because the failure this check exists
+        # against is a green result over work that never ran. The native case is
+        # named as skipped, so a run that passed it on a machine with no core
+        # fails here. The record the reason cites is in the log, so a skip whose
+        # reason went missing fails here. And something passed, so a harness that
+        # collected nothing, or skipped every case in it, cannot report green.
+        run: |
+          set -euo pipefail
+          uv run --frozen pytest -rs native_or_long | tee harness.log
+          grep -q 'SKIPPED .*test_the_seam_under_a_compiled_core.py' harness.log
+          grep -q '0005' harness.log
+          grep -qE '[0-9]+ passed' harness.log
+
+      - name: Prove this check refuses a case that fails
+        # The same fixture the `tests` check uses, run as if it were a case in
+        # this harness. Without this step the job is green whether the harness
+        # ran anything or not, and this harness is the one where that is easiest
+        # to miss, because a skipped case and a case that was never collected
+        # look alike from a distance.
+        run: |
+          set -euo pipefail
+          if uv run --frozen pytest -rs fixtures/only_a_failing_test.py \
+               > proof.log 2>&1; then
+            echo "the harness reported green over a case that fails" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          cat proof.log

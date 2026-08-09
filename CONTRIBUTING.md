@@ -158,6 +158,7 @@ same thing in a clone.
 | On the pull request | In a clone |
 | --- | --- |
 | `tests` | `uv run --frozen pytest -q` |
+| `native-or-long` | `uv run pytest -rs native_or_long`. `-rs` is part of it: a case this machine cannot run is skipped with its reason printed, and without the flag the reason is swallowed and the skip is counted like a pass |
 | `Build wheel` | `uv build --wheel`, then installing that file into an environment with nothing else in it and running the installed copy from outside the checkout |
 | `Generate SBOM` | `uvx --no-build --from "cyclonedx-bom==<version>" cyclonedx-py environment <the artefact's interpreter> --of JSON --output-reproducible --validate`, at the version pinned in `.github/workflows/artefact.yml` |
 | `Mutation testing` | `uv run --frozen --with "cosmic-ray==<version>" cosmic-ray init tools/mutation.toml session.sqlite`, then `cosmic-ray exec` and `cr-report` over that session, at the version pinned in `.github/workflows/mutation.yml`. It runs only on a pull request that touches that workflow or `tools/mutation.toml`, and it reports rather than gates |

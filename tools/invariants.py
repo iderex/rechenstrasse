@@ -140,7 +140,7 @@ RULES: tuple[Rule, ...] = (
             "an import that can reach the network, in a tree whose promise is "
             "that what an operator computes stays on the host"
         ),
-        subjects=("src/", "tools/", ".github/pr-hygiene/"),
+        subjects=("src/", "tools/", ".github/pr-hygiene/", "native_or_long/"),
     ),
     Rule(
         id="no-catch-all-except",
@@ -148,7 +148,7 @@ RULES: tuple[Rule, ...] = (
             "a catch-all around a stage, which turns a refusal from the "
             "admissibility gate into a run that continues and prints a number"
         ),
-        subjects=("src/", "tools/", ".github/pr-hygiene/"),
+        subjects=("src/", "tools/", ".github/pr-hygiene/", "native_or_long/"),
     ),
     Rule(
         id="no-fixture-outside-the-repository",
@@ -156,7 +156,7 @@ RULES: tuple[Rule, ...] = (
             "a test that reads an absolute path or a home directory, which "
             "passes on the machine it was written on and nowhere else"
         ),
-        subjects=("src/", "tools/", ".github/pr-hygiene/"),
+        subjects=("src/", "tools/", ".github/pr-hygiene/", "native_or_long/"),
         tests_only=True,
     ),
     Rule(
