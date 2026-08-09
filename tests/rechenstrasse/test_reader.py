@@ -479,3 +479,76 @@ def test_the_helpers_answer_for_a_key_a_document_does_not_carry() -> None:
     assert reader.bound({"minimum": 3}, "minimum") == 3
     assert reader.symmetries({"symmetries": "symmetric"}) == ()
     assert reader.symmetries({"symmetries": [1, "symmetric"]}) == ("symmetric",)
+
+
+def test_a_document_nested_past_the_limit_is_refused_before_the_loader_runs() -> None:
+    """The crash of issue #51, as the refusal that replaced it.
+
+    Refused before the loader rather than by catching what it raises, because
+    the stack is nearly gone by the time a `RecursionError` arrives and a
+    handler there is a handler running on what is left of it.
+    """
+    text = "[" * (reader.NESTING_LIMIT + 1) + "]" * (reader.NESTING_LIMIT + 1)
+    action, found = reader.read(text)
+    assert action is None
+    assert rules(found) == ["too-deeply-nested"]
+    assert found[0].at.column == reader.NESTING_LIMIT + 1
+
+
+def test_a_document_at_the_limit_is_the_near_miss_and_reaches_the_schema() -> None:
+    """One level under, which has to be read rather than refused for its depth."""
+    text = "[" * reader.NESTING_LIMIT + "]" * reader.NESTING_LIMIT
+    found = reader.read(text)[1]
+    assert rules(found) == ["not-a-document"]
+
+
+def test_a_brace_inside_a_string_nests_nothing() -> None:
+    """The near miss for the depth scan, which is where a naive one gets it wrong."""
+    document = a_document()
+    document["metadata"]["citation"] = "[" * (reader.NESTING_LIMIT + 5)
+    action, found = reader.read(written(document))
+    assert found == ()
+    assert action is not None
+
+
+def test_a_key_written_twice_in_one_mapping_is_refused() -> None:
+    """The second crash of issue #51, and a defect in the reading either way.
+
+    The loader keeps the last of the two and says nothing, so a document
+    declaring a dimension twice is read as the second one and looks like a
+    document that only ever said one thing.
+    """
+    text = (
+        '{\n  "schema_version": 1,\n  "manifold": {\n'
+        '    "dimension": 4,\n    "dimension": 5\n  }\n}\n'
+    )
+    action, found = reader.read(text)
+    assert action is None
+    assert rules(found) == ["key-written-twice"]
+    assert found[0].named == "dimension"
+    assert found[0].at.line == 5
+
+
+def test_the_same_key_in_two_different_mappings_is_the_near_miss() -> None:
+    """`symbol` appears in every field and in every parameter, and that is legal."""
+    action, found = reader.read(written(a_document()))
+    assert found == ()
+    assert action is not None
+    assert len(action.fields) == 2
+
+
+def test_a_duplicate_key_the_schema_does_not_admit_is_still_refused_here() -> None:
+    """Because the duplicate is decided before the schema sees the document.
+
+    The order matters and is not an accident. A document with a duplicate is one
+    the position index cannot walk, so the refusal has to come out before an
+    index is built rather than beside the refusals that use one.
+    """
+    text = '{\n  "invented": 1,\n  "invented": 2\n}\n'
+    found = reader.read(text)[1]
+    assert rules(found) == ["key-written-twice"]
+
+
+def test_bytes_the_loader_refuses_carry_no_duplicate_this_can_see() -> None:
+    """The arm that keeps this from being a second opinion about broken bytes."""
+    assert reader.written_twice('{"a": 1,') == []

@@ -50,6 +50,25 @@ document is refused where the field is declared, and this is that place:
       each other, and it is refused here anyway: a head that fell through would
       reach the algebra as a term built from nothing.
 
+  key-written-twice
+      One mapping carrying one key twice. The loader keeps the last of them and
+      says nothing, so a document declaring `"dimension": 4` and `"dimension":
+      5` is read as the second and looks like a document that only ever said
+      one thing. Record 0004 rules out ignoring a key the author wrote, and this
+      is that rule where the key ignored is one the schema does admit. It is
+      also what the position index cannot survive, because the walk pairs the
+      members of the text with the keys of the parsed mapping and a document
+      with two members and one key has more of the first than the second. Issue
+      #51 is where the input that showed it came from.
+
+  too-deeply-nested
+      A document nested past `NESTING_LIMIT`. Reading one is recursive in the
+      loader and in the position walk, so a document nested deeply enough
+      exhausts the stack and the reader dies instead of answering. This is the
+      one refusal decided before the loader runs, because the loader is one of
+      the two things that would crash. Issue #51 is where the input that showed
+      it came from, and `fuzz/crashes/` carries that input.
+
 Every refusal carries a line and a column as well as a path. That is issue #25's
 own reason and it is why `positions.py` is in this package: a message naming
 `lagrangian.terms[7].head` and no line sends its reader back to counting braces.
@@ -75,6 +94,18 @@ from rechenstrasse.document import positions, schema
 # schema admits and this has no entry for would be a term reaching the
 # representation with nothing resolved, and an entry here for a head no document
 # can carry is a requirement nothing ever reads.
+# How deep a document may nest. The four theory documents in the tree nest four
+# deep, and the schema admits nothing that could legitimately nest further than
+# a handful, so this is far above any document somebody means to write:
+#
+#     python -c "import json,pathlib; ..."   # the measurement is in issue #51
+#
+# It is also far below where the interpreter gives out. A document nesting past
+# roughly a thousand takes the loader's own recursion over the edge, and the
+# refusal has to happen before that rather than by catching the crash, because
+# the stack is nearly gone by the time it is raised.
+NESTING_LIMIT: Final = 100
+
 HEAD_NEEDS: Final[dict[str, tuple[frozenset[str], ...]]] = {
     "ricci_scalar": (frozenset({"metric"}),),
     "cosmological_constant": (frozenset({"metric"}),),
@@ -397,6 +428,33 @@ def _action(
     )
 
 
+def written_twice(document_text: str) -> list[str]:
+    """Every key one mapping in this text carries more than once, in the order read.
+
+    Read through the loader's own pair hook rather than by scanning, because the
+    loader is the authority on what counts as one key: two spellings that differ
+    by an escape are one key to it and two strings to a search.
+
+    Text the loader refuses carries no duplicate as far as this can tell, and the
+    refusal that says why is the schema's.
+    """
+    found: list[str] = []
+
+    def pairs(read_here: list[tuple[str, object]]) -> dict[str, object]:
+        seen: set[str] = set()
+        for key, _ in read_here:
+            if key in seen:
+                found.append(key)
+            seen.add(key)
+        return dict(read_here)
+
+    try:
+        json.loads(document_text, object_pairs_hook=pairs)
+    except json.JSONDecodeError:
+        return []
+    return found
+
+
 def _carried(refusal: schema.Refusal, index: dict[str, positions.Position]) -> Refusal:
     """A refusal the schema made, given the line and column its path resolves to.
 
@@ -428,6 +486,39 @@ def read(
     thing a later stage could read, and a stage that read one would be deriving
     field equations for a theory nobody wrote.
     """
+    too_deep = positions.deeper_than(document_text, NESTING_LIMIT)
+    if too_deep is not None:
+        return None, (
+            Refusal(
+                rule="too-deeply-nested",
+                where="",
+                at=too_deep,
+                named=str(NESTING_LIMIT),
+                detail=(
+                    f"the document nests past {NESTING_LIMIT} here, and reading "
+                    "one that deep recurses until the stack runs out, which is a "
+                    "crash rather than an answer. The documents this schema is "
+                    "for nest a handful deep"
+                ),
+            ),
+        )
+    twice = written_twice(document_text)
+    if twice:
+        return None, tuple(
+            Refusal(
+                rule="key-written-twice",
+                where=key,
+                at=positions.spelled_at(document_text, json.dumps(key), 2)
+                or positions.Position(line=1, column=1),
+                named=key,
+                detail=(
+                    f"the key {key!r} is written twice in one mapping. The loader "
+                    "keeps the last of them and says nothing, so the document "
+                    "reads as if it had only ever said one of the two"
+                ),
+            )
+            for key in twice
+        )
     index = positions.of(document_text)
     loaded, unreadable = schema.read(document_text)
     if unreadable:
