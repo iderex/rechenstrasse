@@ -68,7 +68,10 @@ SUITES: tuple[Suite, ...] = (
     Suite(
         name="the slow half of this suite",
         command="uv run pytest -q -m slow",
-        paths=("tests/test_tree_wide_checks.py",),
+        paths=(
+            "tests/test_tree_wide_checks.py",
+            "tests/rechenstrasse/test_refusal.py",
+        ),
         because=(
             "it starts a second interpreter and walks every file the invariants "
             "rules read, which is not something to sit through on every change"
