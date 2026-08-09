@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "identifier": "brans-dicke",
+    "name": "Brans-Dicke",
+    "citation": "C. Brans and R. H. Dicke, Physical Review 124, 925 (1961)"
+  },
+  "manifold": {
+    "dimension": 4,
+    "signature": "(-, +, +, +)"
+  },
+  "fields": [
+    {
+      "symbol": "g",
+      "role": "metric",
+      "symmetries": ["symmetric"]
+    },
+    {
+      "symbol": "phi",
+      "role": "scalar",
+      "symmetries": []
+    }
+  ],
+  "lagrangian": {
+    "terms": [
+      {
+        "head": "horndeski_g4",
+        "coefficient": "G4_of_phi"
+      },
+      {
+        "head": "horndeski_g2",
+        "coefficient": "G2_of_phi_and_X"
+      }
+    ]
+  },
+  "matter": {
+    "coupling": "minimal",
+    "frame": "jordan"
+  },
+  "parameters": [
+    {
+      "symbol": "omega",
+      "minimum": null,
+      "maximum": null,
+      "claimed_by": "this document, which claims no bound on the coupling"
+    }
+  ],
+  "regime": {
+    "name": "solar system",
+    "length_scale": "astronomical unit"
+  }
+}
