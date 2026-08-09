@@ -1,0 +1,51 @@
+# Citation File Format 1.2.0. What a reader citing this work should put in a
+# bibliography, in the one file the tools that build bibliographies look for.
+#
+# Two fields a citation file usually carries are absent, and the absence is the
+# point rather than an omission to be filled in later by whoever notices.
+#
+#   version and date-released
+#       No release has been cut. A version here would name one that does not
+#       exist, and a date would be the day somebody edited this file rather
+#       than the day anything was released. Issue #99 is where both arrive,
+#       together with the identifier minted for that release.
+#
+#   an identifier for the author
+#       No `orcid` under the author below. An author identifier is one of the
+#       two things issue #99 waits on, and an empty one written in now would be
+#       a key a bibliography tool reads and resolves to nothing, which is worse
+#       than the key being absent.
+#
+#   license
+#       This tree carries two sets of terms, AGPL-3.0 over the code and CC BY
+#       4.0 over the theory documents, the reference values and the prose. The
+#       code half has an SPDX identifier this tree has not chosen between:
+#       nothing here says whether it is version 3 only or version 3 or later,
+#       because the notice that would say so is applied nowhere, and writing
+#       either one into this file would decide it by accident in the file
+#       furthest from where such a thing is decided. LICENSE, LICENSE-CONTENT
+#       and the License section of README.md are the authority meanwhile.
+cff-version: 1.2.0
+title: rechenstrasse
+message: >-
+  If you use this software, cite it. Cite the version you ran rather than the
+  project in general, because a result depends on the version that produced it.
+  The Citing this work section of README.md says how, and says what to do until
+  a release carries an identifier of its own.
+type: software
+authors:
+  - family-names: Lehnen
+    given-names: Nils
+repository-code: https://github.com/iderex/rechenstrasse
+abstract: >-
+  A pipeline from a proposed gravitational action to field equations,
+  post-Newtonian parameters and cosmological perturbation equations. It works
+  symbolically, refuses by name the theory families it does not cover, and
+  records what a run needs so that the same input reproduces the same output.
+keywords:
+  - general relativity
+  - modified gravity
+  - post-Newtonian
+  - scalar-tensor
+  - computer algebra
+  - reproducibility
