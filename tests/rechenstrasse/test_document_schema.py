@@ -214,37 +214,42 @@ def test_a_term_head_the_schema_has_no_case_for_is_refused_with_the_head_named()
     see what happens, which is a small interpreter, and a term it reads as
     something other than what the author meant is the failure this board exists
     to remove.
+
+    A head this schema admits is not the same thing as a term this pipeline will
+    answer for. `horndeski_g5` is admitted here and refused by the gate of issue
+    #26, with the reason record 0003 gives, and that is a better thing to tell
+    an author than that they made a typing mistake.
     """
     document = a_document()
     document["lagrangian"]["terms"].append(
-        {"head": "gauss_bonnet", "coefficient": "alpha"}
+        {"head": "matter_lagrangian", "coefficient": "alpha"}
     )
     found = schema.refusals(document)
     assert rules(found) == ["unknown-term-head"]
-    assert found[0].named == "gauss_bonnet"
+    assert found[0].named == "matter_lagrangian"
     assert found[0].where == "lagrangian.terms[2].head"
-    assert "gauss_bonnet" in found[0].detail
+    assert "matter_lagrangian" in found[0].detail
 
 
-def test_a_term_head_one_character_from_a_covered_one_is_refused() -> None:
+def test_a_term_head_one_character_from_an_admitted_one_is_refused() -> None:
     """The near miss for the head, and the reason the set is closed.
 
-    `horndeski_g5` is one character from `horndeski_g4` and is refused by name
-    in record 0003, for a reason that is not a spelling: the derivative
-    couplings put the theory in a regime where a plain post-Newtonian reading is
-    not what an experiment measures.
+    `ricci_scaler` is one character from `ricci_scalar` and is the spelling a
+    tired author writes. Nothing about the term is unusual, so a reader that
+    accepted it would carry a term this pipeline has no case for straight into
+    the algebra.
     """
     document = a_document()
     document["lagrangian"]["terms"][0] = {
-        "head": "horndeski_g5",
-        "coefficient": "G5",
+        "head": "ricci_scaler",
+        "coefficient": "one_over_two_kappa",
     }
     found = schema.refusals(document)
     assert rules(found) == ["unknown-term-head"]
-    assert found[0].named == "horndeski_g5"
+    assert found[0].named == "ricci_scaler"
 
 
-def test_every_covered_head_is_admitted() -> None:
+def test_every_admitted_head_is_admitted() -> None:
     """The other direction, so the head check is not passing by refusing all of them."""
     document = a_document()
     document["lagrangian"]["terms"] = [
