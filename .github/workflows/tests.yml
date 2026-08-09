@@ -84,6 +84,63 @@ jobs:
       - name: The measurement number, which does not gate
         run: uv run --frozen coverage report
 
+      - name: Prove the coverage bar bites
+        # Before the bar, because a guard whose proof is not run on the same
+        # commit that runs the guard is a guard nobody is checking.
+        run: uv run --frozen python tools/test_coverage_bar.py
+
+      - name: The bar on the surface that decides an answer
+        run: |
+          set -euo pipefail
+          uv run --frozen coverage json -o .coverage.json -q
+          uv run --frozen python tools/coverage_bar.py --report .coverage.json
+
+      - name: Prove this check refuses a report under the bar
+        # The same measurement with the suite that covers the gate left out,
+        # which is what deleting a test does and is the drop this bar exists to
+        # notice. A real run rather than a doctored report, because a report
+        # edited by hand proves the comparison and not that the measurement
+        # reaches the surface. It is written to its own data file, so the
+        # measurement the bar was taken over is not overwritten by the proof.
+        #
+        # The identifier is asserted rather than a non-zero exit, because three
+        # arms read the same bytes and a report that measured nothing is also a
+        # report under the bar as far as an exit status is concerned.
+        run: |
+          set -euo pipefail
+          uv run --frozen coverage run --data-file=.coverage.below -m pytest -q \
+            --ignore=tests/rechenstrasse/test_admissibility.py > /dev/null
+          uv run --frozen coverage json --data-file=.coverage.below \
+            -o ../under-the-bar.json -q
+          if uv run --frozen python tools/coverage_bar.py \
+               --report ../under-the-bar.json > proof.log 2>&1; then
+            echo "the bar accepted a report below it" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'below:' proof.log
+          echo "refused, as it should:"
+          cat proof.log
+
+      - name: The whole-tree number, which does not gate
+        # A second measurement over this repository's own Python rather than the
+        # package alone, printed into the run summary because #49 asks for it to
+        # be tracked and not to gate. It reads lower than the package number and
+        # that is not a defect: the rules under tools/ are covered by proofs that
+        # run in their own checks, and this run does not execute them.
+        run: |
+          set -euo pipefail
+          uv run --frozen coverage run \
+            --source=src,tools,tests,native_or_long -m pytest -q > /dev/null
+          {
+            echo "## Coverage over the whole tree, which gates nothing"
+            echo
+            echo '```'
+            uv run --frozen coverage report
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen coverage report
+
       - name: Prove this check refuses a suite with a failing test
         # A file whose only defect is the assertion in it. Without this step the
         # job is green whether the suite passed or was never really run, which

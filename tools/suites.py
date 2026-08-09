@@ -114,6 +114,16 @@ SUITES: tuple[Suite, ...] = (
         ),
     ),
     Suite(
+        name="the coverage bar's own proof",
+        command="uv run python tools/test_coverage_bar.py",
+        paths=("tools/test_coverage_bar.py",),
+        because=(
+            "it is a standard library suite the `tests` check runs beside the "
+            "bar it proves, before the bar reads a measurement of this run, and "
+            "pytest never reads it"
+        ),
+    ),
+    Suite(
         name="the third party notice rule's own proof",
         command="uv run python tools/test_third_party_notices.py",
         paths=("tools/test_third_party_notices.py",),
