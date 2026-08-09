@@ -28,6 +28,8 @@ uv run --frozen python tools/decision_records.py docs/decisions
 uv run --frozen python tools/test_decision_records.py
 uv run --frozen python tools/checks_table.py
 uv run --frozen python tools/test_checks_table.py
+uv run --frozen python tools/third_party_notices.py --check THIRD-PARTY-NOTICES.md
+uv run --frozen python tools/test_third_party_notices.py
 uv run --frozen python tools/invariants.py
 uv run --frozen python tools/test_invariants.py
 uv run --frozen python tools/test_suites.py
@@ -86,7 +88,10 @@ evaluation boundary, an import that can reach the network, a catch-all `except`,
 and a test reading an absolute path or a home directory, each within the
 directories the rule names in `tools/invariants.py`. A decision record missing
 one of its five sections. A test file the disclosure in `tools/suites.py` does
-not name, and an entry in it naming a file that has left the tree. Everything the
+not name, and an entry in it naming a file that has left the tree. A row in
+`THIRD-PARTY-NOTICES.md` that names a version the lock does not give, terms the
+distribution does not declare, or a distribution the lock does not hold, and a
+distribution in the lock with no row at all. Everything the
 linter, the formatter and the type checker decide.
 
 Prose asks for the rest, and nothing in this tree refuses a violation of it. That

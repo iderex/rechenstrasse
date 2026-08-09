@@ -145,3 +145,39 @@ jobs:
           grep -q 'unnamed-check' proof.log
           echo "refused, as it should:"
           cat proof.log
+
+      - name: Prove the third party notice rule bites
+        run: uv run --frozen python tools/test_third_party_notices.py
+
+      - name: The notice says what the lock and this environment say
+        run: |
+          uv run --frozen python tools/third_party_notices.py \
+            --check THIRD-PARTY-NOTICES.md
+
+      - name: Prove this check refuses a notice that drifted from the lock
+        # A copy of the notice with one version bumped by one character and
+        # nothing else touched, which is the drift that happens when a
+        # dependency moves and nobody regenerates the file. Which row to bump is
+        # read out of the notice rather than named here, so this step does not
+        # go stale the day that dependency moves. The identifier is asserted
+        # rather than a non-zero exit, because several arms read the same two
+        # inputs and a row that went away is also a row whose version changed.
+        run: |
+          set -euo pipefail
+          awk -F'|' 'BEGIN { OFS = "|"; done = 0 }
+                     /^\| `/ && !done {
+                       $3 = substr($3, 1, length($3) - 1) "x "
+                       done = 1
+                     }
+                     { print }' \
+            THIRD-PARTY-NOTICES.md > ../drifted-notice.md
+          diff THIRD-PARTY-NOTICES.md ../drifted-notice.md && exit 1
+          if uv run --frozen python tools/third_party_notices.py \
+               --check ../drifted-notice.md > proof.log 2>&1; then
+            echo "the rule accepted a notice whose version had moved" >&2
+            cat proof.log >&2
+            exit 1
+          fi
+          grep -q 'version:' proof.log
+          echo "refused, as it should:"
+          cat proof.log
