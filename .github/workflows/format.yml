@@ -9,9 +9,16 @@
 # What counts as formatted is configured in pyproject.toml and not here, so the
 # command a contributor runs and the command this job runs are the same command.
 #
-# What this covers is the Python. The workflow files and the documents are NOT
-# formatted by a tool in this tree, and #17 carries the reason and what it would
-# cost. This job does not imply otherwise.
+# What this covers is the Python. The markdown documents and the workflow files,
+# this one included, are NOT formatted by a tool in this tree and nothing here
+# refuses one for how it is laid out. That is decided in record 0077 rather than
+# left open: a formatter over the documents would reach docs/decisions/, where
+# record 0001 says a landed record is not rewritten, and a tool for these files
+# has to be shown not to move or reflow a comment before it is adopted, because
+# the comments here are where the reasoning behind each hardened setting lives.
+# The cost, which record 0077 states rather than hides, is that layout drift
+# between two documents is caught by a reader or not at all. This job does not
+# imply otherwise.
 #
 # The second step is the proof. A file whose only defect is its layout is passed
 # to the formatter and the job fails if the formatter accepts it, and the same

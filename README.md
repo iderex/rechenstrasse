@@ -205,10 +205,19 @@ uv run python tools/test_invariants.py
 ```
 
 What these do not cover. The formatter reads the Python and nothing else, so the
-workflow files and the documents in this tree are laid out by hand. The three
-commands also skip `.github/pr-hygiene/`, which is a standard-library module
-with a suite of its own that runs separately. Both gaps are recorded in issue
-#17 rather than only here.
+markdown documents and the workflow files in this tree are laid out by hand, and
+nothing here refuses one for how it is laid out. That is decided rather than
+left open, in
+[0077](docs/decisions/0077-the-documents-and-the-workflow-files-are-laid-out-by-hand.md):
+a formatter over the documents would reach `docs/decisions/`, where a landed
+record is not rewritten, and a tool for the workflow files has to be shown not to
+move or reflow a comment first, because those comments are where the reasoning
+behind each hardened setting lives. What it costs is that layout drift between
+two documents is caught by a reader or not at all.
+
+The three commands also skip `.github/pr-hygiene/`, which is a standard-library
+module with a suite of its own that runs separately. That gap is recorded in
+issue #17 rather than only here.
 
 `fixtures/` holds files that exist to be refused, one per check, each carrying
 exactly one defect. The workflow runs every check against every fixture and
