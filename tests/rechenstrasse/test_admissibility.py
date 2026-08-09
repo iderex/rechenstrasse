@@ -12,7 +12,9 @@ gate has a case for, and every family record 0003 names is reachable from some
 document.
 
 The documents below are fixtures and not theories. The four theory documents of
-issue #29 are not in the tree, so nothing here says anything about them.
+issue #29 sit in `theories/` and are read by
+`tests/rechenstrasse/test_theory_documents.py`, and nothing here says anything
+about them.
 """
 
 from typing import Any

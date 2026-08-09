@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "identifier": "covered-horndeski-sector",
+    "name": "Horndeski with G2 and G3 free and G4 a function of the field alone",
+    "citation": "G. W. Horndeski, International Journal of Theoretical Physics 10, 363 (1974)"
+  },
+  "manifold": {
+    "dimension": 4,
+    "signature": "(-, +, +, +)"
+  },
+  "fields": [
+    {
+      "symbol": "g",
+      "role": "metric",
+      "symmetries": ["symmetric"]
+    },
+    {
+      "symbol": "phi",
+      "role": "scalar",
+      "symmetries": []
+    }
+  ],
+  "lagrangian": {
+    "terms": [
+      {
+        "head": "horndeski_g2",
+        "coefficient": "G2_of_phi_and_X"
+      },
+      {
+        "head": "horndeski_g3",
+        "coefficient": "G3_of_phi_and_X"
+      },
+      {
+        "head": "horndeski_g4",
+        "coefficient": "G4_of_phi"
+      }
+    ]
+  },
+  "matter": {
+    "coupling": "minimal",
+    "frame": "jordan"
+  },
+  "parameters": [],
+  "regime": {
+    "name": "solar system",
+    "length_scale": "astronomical unit"
+  }
+}
