@@ -80,10 +80,19 @@ from typing import Final
 CURRENT_SCHEMA_VERSION: Final = 1
 READABLE_SCHEMA_VERSIONS: Final = (1,)
 
-# The heads a Lagrangian term may carry, and what each one stands for. The set
-# is the covered class of record 0003 written in the terms record 0008 fixes
-# signs for, and nothing wider: a head that is not here is refused rather than
-# guessed at.
+# The heads a Lagrangian term may carry, and what each one stands for. A head
+# that is not here is refused rather than guessed at.
+#
+# The set is wider than the covered class of record 0003, and deliberately so.
+# Every family that record names as refused is refused for a reason, and a
+# reason can only be given to somebody whose document got far enough to be
+# classified. A head that is expressible here and refused by the gate of issue
+# #26 tells its author which family they are in and why; a head this schema had
+# never heard of would tell them they had made a typing mistake. Which heads
+# belong to which family is the gate's to say and is not written here, and the
+# suite in `tests/rechenstrasse/test_admissibility.py` refuses a head this
+# schema admits that the gate has no case for, so the accepted surface and the
+# refused surface cannot move apart.
 #
 # There is exactly one way to write each covered term, which is a property the
 # canonical form of record 0005 rests on. `ricci_scalar` carries a constant
@@ -103,6 +112,12 @@ TERM_HEADS: Final[dict[str, str]] = {
     "horndeski_g2": "G2(phi, X), which is where a potential enters",
     "horndeski_g3": "-G3(phi, X) box phi, with the sign record 0008 fixes",
     "horndeski_g4": "G4(phi) R, with G4 a function of the field alone",
+    "horndeski_g4_kinetic": "G4(phi, X) R, the same term with kinetic dependence",
+    "horndeski_g5": "the G5 sector, in any of the forms it is written in",
+    "torsion_scalar": "the torsion scalar T, and any function of it",
+    "gauss_bonnet": "the Gauss-Bonnet combination",
+    "ricci_squared": "the square of the Ricci tensor, contracted on both indices",
+    "riemann_squared": "the square of the Riemann tensor, contracted on all four",
 }
 
 
