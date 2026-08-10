@@ -84,6 +84,14 @@ SURFACE: tuple[Surface, ...] = (
         ),
     ),
     Surface(
+        path="src/rechenstrasse/variation/metric.py",
+        because=(
+            "it is the first stage that computes rather than reads, and an arm "
+            "of it that nothing exercises is a term of the action that reaches "
+            "no field equation while the equation still looks like one"
+        ),
+    ),
+    Surface(
         path="src/rechenstrasse/ppn/bookkeeping.py",
         because=(
             "it decides which terms survive a truncation and at what order, and "
