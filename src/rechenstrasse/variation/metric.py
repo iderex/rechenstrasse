@@ -59,13 +59,23 @@ boundary terms were taken to vanish. What no output carries them into is a run
 record: record 0007's provenance block is issue #60 and does not exist, so
 today they reach the caller of this stage and nothing further.
 
-Which heads this stage has a rule for. The four in `RULES`, which are the
-covered heads of the admissibility gate whose terms are built from the metric,
-its inverse, the curvature scalar and a scalar field with first derivatives,
-which is the class issue #30 names. `horndeski_g3` is the covered head outside
-that class, because it carries `box phi`, and it sits in `NOT_DERIVED` with the
-issue that holds it. The suite refuses a covered head that is in neither, so a
-head widened into the gate cannot arrive here as a term nobody varies.
+Which heads this stage has a rule for. All of them, which is the covered set of
+the admissibility gate and nothing else. Four of the five rules reach terms
+built from the metric, its inverse, the curvature scalar and a scalar field with
+first derivatives, which is the class issue #30 names. `horndeski_g3` is the one
+outside that class, because the term it stands for carries `box phi`, and its
+rule is issue #114. The suite holds the covered set against `RULES`, so a head
+widened into the gate cannot arrive here as a term nobody varies.
+
+What the cubic term needs that the others do not. `-G3(phi, X) box phi` puts a
+second derivative of the field under the variation, and the variation of the
+connection inside it reaches `G3` only through an integration by parts, whose
+derivative then comes off `G3` through both of its arguments. So the equation it
+contributes carries two things no other rule produces: the gradient of the
+kinetic scalar paired with the gradient of the field, which is the structure
+`MIXED_GRADIENT_PAIR`, and two scalars this module has no metric to contract,
+`BOX` and `GRADIENT_PRODUCT`, which are held as atoms for the same reason the
+curvature scalar is.
 """
 
 from collections.abc import Callable
@@ -83,14 +93,21 @@ from rechenstrasse import representation
 #   ricci                 R_mn
 #   metric                g_mn
 #   gradient-pair         grad_m phi grad_n phi
+#   mixed-gradient-pair   grad_(m u grad_n) phi, with u the scalar it carries
 #   hessian               grad_m grad_n u, with u the scalar it carries
 #   box-times-metric      g_mn box u, with u the scalar it carries
 #
-# The last two carry a scalar and the first three do not, and a structure of one
+# The last three carry a scalar and the first two do not, and a structure of one
 # of those kinds holding one would be a value with two meanings.
+#
+# The mixed pair is symmetrised over its two indices and its second gradient is
+# always the scalar field, so the one scalar it holds is the other gradient. It
+# prints the field as `phi`, which is what the plain gradient pair above already
+# does.
 RICCI: Final = "ricci"
 METRIC: Final = "metric"
 GRADIENT_PAIR: Final = "gradient-pair"
+MIXED_GRADIENT_PAIR: Final = "mixed-gradient-pair"
 HESSIAN: Final = "hessian"
 BOX_TIMES_METRIC: Final = "box-times-metric"
 
@@ -98,16 +115,27 @@ KINDS: Final[tuple[str, ...]] = (
     RICCI,
     METRIC,
     GRADIENT_PAIR,
+    MIXED_GRADIENT_PAIR,
     HESSIAN,
     BOX_TIMES_METRIC,
 )
-CARRY_A_SCALAR: Final[frozenset[str]] = frozenset({HESSIAN, BOX_TIMES_METRIC})
+CARRY_A_SCALAR: Final[frozenset[str]] = frozenset(
+    {MIXED_GRADIENT_PAIR, HESSIAN, BOX_TIMES_METRIC}
+)
 
 # The curvature scalar, and the kinetic scalar record 0008 defines as
 # X = -1/2 g^{mn} (grad_m phi)(grad_n phi). Both are symbols here rather than
 # expressions, because this module holds no metric to contract with.
 CURVATURE_SCALAR: Final = sp.Symbol("R")
 KINETIC_SCALAR: Final = sp.Symbol("X")
+
+# Two more scalars, written on the scalars they are built from rather than held
+# as bare symbols, for the same reason the two above are symbols: this module has
+# no metric to contract with, so a contraction is an atom here and not an
+# expression. `BOX(u)` is `box u`, and `GRADIENT_PRODUCT(u, v)` is
+# `grad^a u grad_a v`. Both reach an equation only through the cubic term.
+BOX: Final = sp.Function("box")
+GRADIENT_PRODUCT: Final = sp.Function("grad_dot_grad")
 
 # The gravitational coupling in the spelling record 0008 requires. `G` stays
 # visible rather than being set to one, so that the constant in the field
@@ -131,16 +159,22 @@ BOUNDARY_ASSUMPTION: Final = (
     "boundary of the region the action is integrated over"
 )
 
-# The covered heads this stage has no variation rule for, and why. A head sits
-# here rather than being absent, so that the covered set and the varied set are
-# held against each other by the suite instead of by memory.
-NOT_DERIVED: Final[dict[str, str]] = {
-    "horndeski_g3": (
-        "the term carries box phi, a second derivative of the scalar field, "
-        "which is outside the class issue #30 names, and issue #114 is where "
-        "its variation is written"
-    ),
-}
+# What the cubic term's boundary terms are dropped under, which is less than the
+# line above asks for. Its divergences come from one integration by parts rather
+# than two, so nothing about the first derivative of the variation is needed, and
+# carrying the stronger sentence on them would say the derivation assumed
+# something it did not.
+METRIC_VARIATION_ASSUMPTION: Final = (
+    "the variation of the metric vanishes on the boundary of the region the "
+    "action is integrated over"
+)
+
+# Every assumption a boundary term in this module can go under. The suite reads
+# this rather than a single sentence, so a rule that invented a third one would
+# be caught instead of passing as prose nobody compares.
+BOUNDARY_ASSUMPTIONS: Final[frozenset[str]] = frozenset(
+    {BOUNDARY_ASSUMPTION, METRIC_VARIATION_ASSUMPTION}
+)
 
 
 @dataclass(frozen=True)
@@ -164,6 +198,8 @@ class Structure:
             return f"grad_m grad_n ({self.scalar})"
         if self.kind == BOX_TIMES_METRIC:
             return f"g_mn box ({self.scalar})"
+        if self.kind == MIXED_GRADIENT_PAIR:
+            return f"grad_(m ({self.scalar}) grad_n) phi"
         if self.kind == RICCI:
             return "R_mn"
         if self.kind == GRADIENT_PAIR:
@@ -219,11 +255,13 @@ class SurfaceTerm:
 
     `around` is the scalar the divergence is built from, `divergence` is the
     thing itself written out, and `assumed` is the condition under which it may
-    be dropped. `vanishes_by_itself` is true where that scalar is constant, in
-    which case one half of the divergence is zero and only the surviving half
-    is written. The flag is not a statement that the term vanished: the reader
-    of a derivation wants to know which boundary terms were assumed away and
-    which of those had a part that went away on its own.
+    be dropped. `vanishes_by_itself` is true where the divergence has a half that
+    is zero because that scalar is constant, in which case only the surviving
+    half is written. The flag is not a statement that the term vanished: the
+    reader of a derivation wants to know which boundary terms were assumed away
+    and which of those had a part that went away on its own. A divergence that
+    was never in two halves, which is what one integration by parts leaves,
+    carries it false whatever the scalar is.
     """
 
     around: sp.Expr
@@ -255,9 +293,12 @@ class NotDerived:
 
     A different thing from a refusal in `rechenstrasse.refusal`. A refusal says
     a decision record drew a line the input is outside. This says the work that
-    would derive the input has not been written, and names where it is held.
-    Reporting the two in one vocabulary would tell an author their theory was
-    ruled out when it was not.
+    would derive the input has not been written. Reporting the two in one
+    vocabulary would tell an author their theory was ruled out when it was not.
+
+    Every covered head has a rule, so no document the gate admits reaches this
+    today. What still does is a term whose head this stage never heard of, and a
+    term that resolved to no scalar field for a head whose coefficient needs one.
     """
 
     reasons: tuple[str, ...]
@@ -288,7 +329,7 @@ def _derivative_of(
     coefficient: sp.Expr,
     constants: frozenset[sp.Symbol],
 ) -> list[tuple[Structure, sp.Expr]]:
-    """A second derivative operator applied to a scalar, by linearity.
+    """A derivative operator applied to a scalar, by linearity.
 
     Two things come out of this that a structure holding the scalar whole would
     not give. A constant factor comes out in front, so the same expression
@@ -296,6 +337,10 @@ def _derivative_of(
     dynamical content is dropped, because it is zero rather than small, which is
     what makes the constant coefficient of the Einstein-Hilbert term produce no
     derivative terms at all.
+
+    Every kind in `CARRY_A_SCALAR` differentiates its scalar, so all of them come
+    through here: the two second derivative operators, and the single gradient
+    the mixed pair holds.
     """
     produced: list[tuple[Structure, sp.Expr]] = []
     for piece in sp.Add.make_args(sp.expand(scalar)):
@@ -410,6 +455,86 @@ def _vary_g2(
     ], ()
 
 
+def _vary_g3(
+    coefficient: sp.Expr, _constants: frozenset[sp.Symbol]
+) -> tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]]:
+    """The variation of `-G3(phi, X) box phi`, which is issue #114.
+
+    The metric reaches this term four ways, and the last of them is what makes it
+    a piece of work rather than a fifth line in a table. Through the volume
+    element. Through the kinetic scalar inside `G3`. Through the inverse metric
+    that contracts the two derivatives in `box phi`. And through the connection
+    inside `box phi`, which no other covered head carries, because no other one
+    puts a second derivative of the field under the variation.
+
+    The connection piece contracts to
+
+        g^ab delta Gamma^c_ab grad_c phi
+
+    with two terms in it, and each is integrated by parts once to take the
+    derivative off the variation of the metric. What comes back sits on `G3`, and
+    the derivative that came off it reaches both of its arguments:
+
+        grad_a G3 = G3_phi grad_a phi + G3_X grad_a X
+
+    Two cancellations happen on the way and both are worth naming, because a
+    reader who expects the second derivatives of `phi` to survive will look for
+    them. The `G3 grad_m grad_n phi` the inverse metric produces is cancelled
+    exactly by the one the integration by parts brings back, and the
+    `1/2 G3 box phi g_mn` from the volume element is cancelled exactly by the
+    half of the second divergence that carries `box phi`. So the equation carries
+    no undifferentiated `G3` at all, which is why a constant `G3` contributes
+    nothing: the term is then a total divergence.
+
+    What is left is the published form, in record 0008's conventions:
+
+        1/2 G3_X box phi grad_m phi grad_n phi
+        + G3_phi grad_m phi grad_n phi
+        + G3_X grad_(m X grad_n) phi
+        + X G3_phi g_mn
+        - 1/2 G3_X grad^a X grad_a phi g_mn
+
+    The field is read off the coefficient rather than passed in, because
+    `coefficient_of` is what put it there: the coefficient of this head is an
+    undefined function of the field and the kinetic scalar, in that order.
+    """
+    field = coefficient.args[0]
+    by_the_field = sp.Derivative(coefficient, field).doit()
+    by_the_kinetic = sp.Derivative(coefficient, KINETIC_SCALAR).doit()
+    produced = [
+        (
+            Structure(GRADIENT_PAIR),
+            by_the_field + sp.Rational(1, 2) * by_the_kinetic * BOX(field),
+        ),
+        (Structure(MIXED_GRADIENT_PAIR, KINETIC_SCALAR), by_the_kinetic),
+        (
+            Structure(METRIC),
+            KINETIC_SCALAR * by_the_field
+            - sp.Rational(1, 2)
+            * by_the_kinetic
+            * GRADIENT_PRODUCT(KINETIC_SCALAR, field),
+        ),
+    ]
+    # One integration by parts per term of the contracted connection piece, so
+    # one divergence each and neither of them in two halves. What a document
+    # holds constant decides nothing here: a `G3` that varies with nothing leaves
+    # the same two divergences, since what they are built from is the gradient of
+    # the field rather than the gradient of the coefficient.
+    dropped = tuple(
+        SurfaceTerm(
+            around=coefficient,
+            divergence=written,
+            assumed=METRIC_VARIATION_ASSUMPTION,
+            vanishes_by_itself=False,
+        )
+        for written in (
+            f"grad^n ( ({coefficient}) grad_m ({field}) delta g^(mn) )",
+            f"grad^l ( -1/2 ({coefficient}) grad_l ({field}) g_mn delta g^(mn) )",
+        )
+    )
+    return produced, dropped
+
+
 def _vary_cosmological_constant(
     coefficient: sp.Expr, _constants: frozenset[sp.Symbol]
 ) -> tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]]:
@@ -430,10 +555,11 @@ def _vary_cosmological_constant(
 
 
 # One rule per head this stage varies. `derive` dispatches on this mapping, and
-# the suite holds its keys, together with `NOT_DERIVED`, against the covered
-# heads of the admissibility gate. A rule returns what it contributes to the
-# equation and every boundary term it dropped, in that order, so a rule that
-# drops one cannot return without saying so.
+# the suite holds its keys against the covered heads of the admissibility gate,
+# which is what stops a head being widened into the gate with nothing to vary it.
+# A rule returns what it contributes to the equation and every boundary term it
+# dropped, in that order, so a rule that drops one cannot return without saying
+# so.
 Rule = Callable[
     [sp.Expr, frozenset[sp.Symbol]],
     tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]],
@@ -443,6 +569,7 @@ RULES: Final[dict[str, Rule]] = {
     "ricci_scalar": _vary_curvature_scalar,
     "horndeski_g4": _vary_curvature_scalar,
     "horndeski_g2": _vary_g2,
+    "horndeski_g3": _vary_g3,
     "cosmological_constant": _vary_cosmological_constant,
 }
 
@@ -521,13 +648,9 @@ def derive(action: representation.Action) -> Derivation | NotDerived:
     reasons: list[str] = []
     varied: list[tuple[representation.Term, sp.Expr]] = []
     for term in action.lagrangian.terms:
-        if term.head in NOT_DERIVED:
-            reasons.append(f"{term.head}: {NOT_DERIVED[term.head]}")
-            continue
         if term.head not in RULES:
             reasons.append(
-                f"{term.head}: this stage has no variation rule for that head "
-                "and it is not one of the heads named as not derived"
+                f"{term.head}: this stage has no variation rule for that head"
             )
             continue
         coefficient = coefficient_of(term)

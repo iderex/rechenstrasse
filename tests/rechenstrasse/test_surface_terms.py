@@ -37,7 +37,16 @@ PHI = sp.Symbol("phi")
 # which is what an integration by parts is needed for and the only thing that
 # creates a boundary term here. Written out so that a head moving into or out of
 # this set is a change to this list rather than a number that quietly moves.
-HEADS_THAT_DROP_A_BOUNDARY_TERM = frozenset({"ricci_scalar", "horndeski_g4"})
+#
+# Two heads reach it from opposite directions and each drops two divergences. The
+# curvature heads put the derivative there through the variation of the
+# connection inside `R`, and each of their two divergences is integrated by parts
+# twice. The cubic head puts it there through the variation of the connection
+# inside `box phi`, and each of its two is integrated by parts once, which is why
+# the assumption on them is the weaker of the two.
+HEADS_THAT_DROP_A_BOUNDARY_TERM = frozenset(
+    {"ricci_scalar", "horndeski_g4", "horndeski_g3"}
+)
 
 
 def action_of(stem: str) -> Action:
@@ -150,7 +159,7 @@ def test_every_derivation_in_the_tree_reports_what_it_dropped() -> None:
         )
         assert len(produced.surface_terms) == owed, stem
         assert all(
-            surface.assumed == metric.BOUNDARY_ASSUMPTION
+            surface.assumed in metric.BOUNDARY_ASSUMPTIONS
             for surface in produced.surface_terms
         )
     assert reached > 0
@@ -206,10 +215,66 @@ def test_the_equation_and_what_was_dropped_are_one_result() -> None:
 def test_a_document_that_derives_nothing_reports_no_boundary_terms_either() -> None:
     """Nothing was dropped, because nothing was varied.
 
-    `covered-horndeski-sector` carries a head this stage has no rule for, so no
-    equation exists to have assumptions about, and the value that comes back has
-    no place to put a boundary term. That is the shape rather than an empty
-    tuple beside a half derived equation.
+    Every head the gate covers has a rule, so this is reached with an action
+    assembled by hand rather than with a document. No equation exists to have
+    assumptions about, and the value that comes back has no place to put a
+    boundary term at all. That is the shape rather than an empty tuple beside a
+    half derived equation.
     """
-    produced = metric.derive(action_of("covered-horndeski-sector"))
+    metric_field = Tensor(symbol="g", role="metric", slots=2, symmetries=("symmetric",))
+    template = action_of("brans-dicke")
+    handmade = Action(
+        schema_version=1,
+        metadata=template.metadata,
+        manifold=template.manifold,
+        fields=(metric_field,),
+        lagrangian=Lagrangian(
+            terms=(
+                Term(
+                    head="gauss_bonnet",
+                    coefficient="alpha",
+                    mentions=(metric_field,),
+                ),
+            )
+        ),
+        matter=template.matter,
+        parameters=(),
+        regime=template.regime,
+    )
+    produced = metric.derive(handmade)
     assert isinstance(produced, metric.NotDerived)
+
+
+def test_the_cubic_term_drops_two_divergences_under_the_weaker_assumption() -> None:
+    """What `horndeski_g3` leaves behind, and why it says less than the rest.
+
+    Issue #114. Its two divergences come from one integration by parts each,
+    where the curvature heads need two, so what has to vanish on the boundary is
+    the variation of the metric and not also its first derivative. Carrying the
+    stronger sentence on them would say the derivation assumed something it did
+    not, which is the same class of untruth as hiding a term it dropped.
+
+    Neither of the two is in halves, so neither can lose one, and that is why
+    both carry the flag false whatever the coefficient does. The leg holds the
+    two assumptions apart rather than asserting membership of a set, because a
+    rule that put the stronger sentence on both would pass that.
+    """
+    dropped = derivation_of("covered-horndeski-sector").surface_terms
+    cubic = [
+        surface
+        for surface in dropped
+        if surface.assumed == metric.METRIC_VARIATION_ASSUMPTION
+    ]
+    curvature = [
+        surface for surface in dropped if surface.assumed == metric.BOUNDARY_ASSUMPTION
+    ]
+    assert len(cubic) == 2
+    assert len(curvature) == 2
+    assert len(dropped) == 4
+    carried = sp.Function("G3_of_phi_and_X")(PHI, metric.KINETIC_SCALAR)
+    for surface in cubic:
+        assert surface.around == carried
+        assert surface.vanishes_by_itself is False
+        assert "grad_m (phi)" in surface.divergence or (
+            "grad_l (phi)" in surface.divergence
+        )
