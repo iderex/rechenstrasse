@@ -96,13 +96,12 @@ jobs:
           uv run --frozen python tools/coverage_bar.py --report .coverage.json
 
       - name: Prove this check refuses a report under the bar
-        # The same measurement with the suites that cover two of the three
-        # surface entries left out, which is what deleting a test does and is
-        # the drop this bar exists to notice. A real run rather than a doctored
-        # report, because a report edited by hand proves the comparison and not
-        # that the measurement reaches the surface. It is written to its own
-        # data file, so the measurement the bar was taken over is not
-        # overwritten by the proof.
+        # The same measurement with the suites that cover the surface left out,
+        # which is what deleting a test does and is the drop this bar exists to
+        # notice. A real run rather than a doctored report, because a report
+        # edited by hand proves the comparison and not that the measurement
+        # reaches the surface. It is written to its own data file, so the
+        # measurement the bar was taken over is not overwritten by the proof.
         #
         # Every suite that reaches a surface entry, and not one of them, and the
         # reason is the bound of a bar taken over a surface rather than per
@@ -117,6 +116,15 @@ jobs:
         # measurement below the bar is refused. What is not proved is that
         # losing any single suite reaches below it.
         #
+        # THE LIST HAS TO GROW WITH THE SURFACE AND HAS TWICE NOT. The metric
+        # variation joined the surface with its two suites unlisted here, and
+        # the proof stayed green because the number happened to stay below the
+        # bar; the seam of issue #26 joining it put the number at 90.87 percent
+        # and the proof went red, which is how both omissions were found. What
+        # this step cannot do is notice the first kind by itself, since a list
+        # that is too short reads exactly like one that is complete until the
+        # arithmetic crosses the bar.
+        #
         # The identifier is asserted rather than a non-zero exit, because three
         # arms read the same bytes and a report that measured nothing is also a
         # report under the bar as far as an exit status is concerned.
@@ -124,8 +132,13 @@ jobs:
           set -euo pipefail
           uv run --frozen coverage run --data-file=.coverage.below -m pytest -q \
             --ignore=tests/rechenstrasse/test_admissibility.py \
+            --ignore=tests/rechenstrasse/test_theory_documents.py \
+            --ignore=tests/rechenstrasse/test_admission.py \
             --ignore=tests/rechenstrasse/test_reader.py \
-            --ignore=tests/test_fuzz_corpus.py > /dev/null
+            --ignore=tests/test_fuzz_corpus.py \
+            --ignore=tests/rechenstrasse/test_metric_variation.py \
+            --ignore=tests/rechenstrasse/test_surface_terms.py \
+            --ignore=tests/rechenstrasse/test_ppn_bookkeeping.py > /dev/null
           uv run --frozen coverage json --data-file=.coverage.below \
             -o ../under-the-bar.json -q
           if uv run --frozen python tools/coverage_bar.py \
