@@ -24,6 +24,7 @@ from pathlib import Path
 
 import sympy as sp
 
+from rechenstrasse.admissibility import admission, gate
 from rechenstrasse.document import reader
 from rechenstrasse.representation import Action, Lagrangian, Tensor, Term
 from rechenstrasse.variation import metric
@@ -57,8 +58,34 @@ def action_of(stem: str) -> Action:
     return read
 
 
+def admitted_of(stem: str) -> admission.Admitted:
+    """One theory document, read and gated, which is the route a stage takes.
+
+    Issue #26. The stage takes what the gate produced rather than what the
+    reader produced, so this is what a leg below hands it, and a document the
+    gate did not place inside the covered class never gets that far.
+    """
+    text = (THEORIES / f"{stem}.json").read_text(encoding="utf-8")
+    passed = admission.admit(text)
+    assert isinstance(passed, admission.Admitted), (stem, passed)
+    return passed
+
+
+def around_the_gate(action: Action) -> admission.Admitted:
+    """An action handed to the stage with no document behind it, said out loud.
+
+    Some arms of the stage exist for inputs no document in the tree reaches, and
+    for heads the gate refuses outright, so the only way to execute one is to
+    build the value the stage takes by hand. `rechenstrasse.admissibility.admission`
+    says that is a decision rather than an accident, and this is the one place in
+    this file that takes it. The verdict carried is a covered one with no reasons,
+    because there is no document for the gate to have given reasons about.
+    """
+    return admission.Admitted(action=action, verdict=gate.Verdict(state=gate.COVERED))
+
+
 def derivation_of(stem: str) -> metric.Derivation:
-    produced = metric.derive(action_of(stem))
+    produced = metric.derive(admitted_of(stem))
     assert isinstance(produced, metric.Derivation), produced
     return produced
 
@@ -150,7 +177,7 @@ def test_every_derivation_in_the_tree_reports_what_it_dropped() -> None:
     assert stems, f"no theory document below {THEORIES}, which is not a pass"
     reached = 0
     for stem in stems:
-        produced = metric.derive(action_of(stem))
+        produced = metric.derive(admitted_of(stem))
         if isinstance(produced, metric.NotDerived):
             continue
         reached += 1
@@ -193,7 +220,7 @@ def test_a_term_that_integrates_nothing_by_parts_drops_nothing() -> None:
         parameters=(),
         regime=template.regime,
     )
-    produced = metric.derive(handmade)
+    produced = metric.derive(around_the_gate(handmade))
     assert isinstance(produced, metric.Derivation)
     assert produced.surface_terms == ()
     assert produced.equation.terms != ()
@@ -208,7 +235,7 @@ def test_the_equation_and_what_was_dropped_are_one_result() -> None:
     """
     stem = "brans-dicke"
     produced = derivation_of(stem)
-    assert metric.field_equation(action_of(stem)) == produced.equation
+    assert metric.field_equation(admitted_of(stem)) == produced.equation
     assert produced.surface_terms != ()
 
 
@@ -241,7 +268,7 @@ def test_a_document_that_derives_nothing_reports_no_boundary_terms_either() -> N
         parameters=(),
         regime=template.regime,
     )
-    produced = metric.derive(handmade)
+    produced = metric.derive(around_the_gate(handmade))
     assert isinstance(produced, metric.NotDerived)
 
 

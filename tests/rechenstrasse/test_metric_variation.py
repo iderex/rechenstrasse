@@ -52,7 +52,7 @@ from pathlib import Path
 import pytest
 import sympy as sp
 
-from rechenstrasse.admissibility import gate
+from rechenstrasse.admissibility import admission, gate
 from rechenstrasse.document import reader
 from rechenstrasse.representation import Action, Lagrangian, Parameter, Tensor, Term
 from rechenstrasse.variation import metric
@@ -81,8 +81,34 @@ def action_of(stem: str) -> Action:
     return read
 
 
+def admitted_of(stem: str) -> admission.Admitted:
+    """One theory document, read and gated, which is the route a stage takes.
+
+    Issue #26. The stage takes what the gate produced rather than what the
+    reader produced, so this is what a leg below hands it, and a document the
+    gate did not place inside the covered class never gets that far.
+    """
+    text = (THEORIES / f"{stem}.json").read_text(encoding="utf-8")
+    passed = admission.admit(text)
+    assert isinstance(passed, admission.Admitted), (stem, passed)
+    return passed
+
+
+def around_the_gate(action: Action) -> admission.Admitted:
+    """An action handed to the stage with no document behind it, said out loud.
+
+    Some arms of the stage exist for inputs no document in the tree reaches, and
+    for heads the gate refuses outright, so the only way to execute one is to
+    build the value the stage takes by hand. `rechenstrasse.admissibility.admission`
+    says that is a decision rather than an accident, and this is the one place in
+    this file that takes it. The verdict carried is a covered one with no reasons,
+    because there is no document for the gate to have given reasons about.
+    """
+    return admission.Admitted(action=action, verdict=gate.Verdict(state=gate.COVERED))
+
+
 def derived(stem: str) -> metric.FieldEquation:
-    produced = metric.field_equation(action_of(stem))
+    produced = metric.field_equation(admitted_of(stem))
     assert isinstance(produced, metric.FieldEquation), produced
     return produced
 
@@ -151,7 +177,9 @@ def one_term_action(head: str, coefficient: str, *, carries: str = "") -> Action
 
 
 def contribution_of(head: str, coefficient: str) -> metric.FieldEquation:
-    produced = metric.field_equation(one_term_action(head, coefficient))
+    produced = metric.field_equation(
+        around_the_gate(one_term_action(head, coefficient))
+    )
     assert isinstance(produced, metric.FieldEquation), produced
     return produced
 
@@ -399,7 +427,7 @@ def test_a_head_with_no_rule_and_no_entry_produces_no_equation() -> None:
         parameters=(),
         regime=template.regime,
     )
-    produced = metric.field_equation(handmade)
+    produced = metric.field_equation(around_the_gate(handmade))
     assert isinstance(produced, metric.NotDerived)
     assert "no variation rule for that head" in produced.reasons[0]
 
@@ -431,7 +459,7 @@ def test_every_theory_document_in_the_tree_is_varied() -> None:
     stems = sorted(path.stem for path in THEORIES.glob("*.json"))
     assert stems, f"no theory document below {THEORIES}, which is not a pass"
     for stem in stems:
-        produced = metric.field_equation(action_of(stem))
+        produced = metric.field_equation(admitted_of(stem))
         assert isinstance(produced, metric.FieldEquation), (stem, produced)
         assert produced.terms != ()
 
@@ -490,7 +518,7 @@ def test_a_term_that_resolved_to_no_scalar_field_produces_no_equation() -> None:
         parameters=(),
         regime=action_of("brans-dicke").regime,
     )
-    produced = metric.field_equation(handmade)
+    produced = metric.field_equation(around_the_gate(handmade))
     assert isinstance(produced, metric.NotDerived)
     assert "resolved to no scalar field" in produced.reasons[0]
 
@@ -720,10 +748,14 @@ def degeneration(carries: str) -> tuple[metric.FieldEquation, metric.FieldEquati
     coupling = sp.Symbol(carries)
     of_phi, of_kinetic = sp.symbols("of_phi of_kinetic")
     cubic = metric.field_equation(
-        one_term_action("horndeski_g3", "G3_of_phi_and_X", carries=carries)
+        around_the_gate(
+            one_term_action("horndeski_g3", "G3_of_phi_and_X", carries=carries)
+        )
     )
     quadratic = metric.field_equation(
-        one_term_action("horndeski_g2", "G2_of_phi_and_X", carries=carries)
+        around_the_gate(
+            one_term_action("horndeski_g2", "G2_of_phi_and_X", carries=carries)
+        )
     )
     assert isinstance(cubic, metric.FieldEquation)
     assert isinstance(quadratic, metric.FieldEquation)
@@ -780,7 +812,7 @@ def test_the_degeneration_is_not_two_empty_equations_agreeing() -> None:
     coupling = sp.Symbol("c")
     of_phi, of_kinetic = sp.symbols("of_phi of_kinetic")
     quadratic = metric.field_equation(
-        one_term_action("horndeski_g2", "G2_of_phi_and_X", carries="c")
+        around_the_gate(one_term_action("horndeski_g2", "G2_of_phi_and_X", carries="c"))
     )
     assert isinstance(quadratic, metric.FieldEquation)
     wrong_sign = metric.substituting(

@@ -1,8 +1,16 @@
 """Varying the action with respect to the metric.
 
-Issue #30. This is the first stage that computes rather than reads. It takes the
-action of record 0005 and produces the field equations of the gravitational
-sector, in the sign, index and unit conventions record 0008 fixes.
+Issue #30. This is the first stage that computes rather than reads. It takes a
+document the admissibility gate placed inside the covered class and produces the
+field equations of the gravitational sector, in the sign, index and unit
+conventions record 0008 fixes.
+
+What it takes is `admission.Admitted` rather than the action of record 0005, and
+that is issue #26's second clause: an action is what the reader builds out of
+bytes, the gate never sees one, and a stage taking one is a stage a caller
+reaches without the gate by writing nothing that looks like a mistake.
+`rechenstrasse.admissibility.admission` carries that value, is the only route to
+one, and is where the bound on the protection is written.
 
 What it produces, and in which normalisation. The value below is `E_mn`, the
 functional derivative of the gravitational part of the action with respect to
@@ -85,6 +93,7 @@ from typing import Final
 import sympy as sp
 
 from rechenstrasse import representation
+from rechenstrasse.admissibility import admission
 
 # The rank two symmetric structures a field equation in this class is built
 # from. Each is a shape rather than a value, and what stands in front of it is a
@@ -624,27 +633,36 @@ def coefficient_of(term: representation.Term) -> sp.Expr | None:
     return sp.Function(term.coefficient)(scalar, KINETIC_SCALAR)
 
 
-def field_equation(action: representation.Action) -> FieldEquation | NotDerived:
+def field_equation(admitted: admission.Admitted) -> FieldEquation | NotDerived:
     """`E_mn` alone, for a caller that has no use for what was dropped.
 
     A convenience over `derive` and nothing more. It is not the way to get an
     equation whose assumptions a reader has to see: the surface terms are part
     of the result rather than a detail of how it was reached, which is why the
-    fuller value is the one with its own name.
+    fuller value is the one with its own name. It takes the same value `derive`
+    takes, so it is not a way around the gate either.
     """
-    produced = derive(action)
+    produced = derive(admitted)
     if isinstance(produced, NotDerived):
         return produced
     return produced.equation
 
 
-def derive(action: representation.Action) -> Derivation | NotDerived:
-    """`E_mn` for one action with every boundary term it dropped, or why not.
+def derive(admitted: admission.Admitted) -> Derivation | NotDerived:
+    """`E_mn` for one admitted document, with what it dropped, or why not.
 
     Every term contributes or the document produces no equation at all, because
     a field equation missing one term of the action is wrong in the way that
     looks right.
+
+    What this takes is issue #26's second clause rather than a convenience. An
+    action is what the reader builds out of bytes and the gate never sees one,
+    so a stage taking an action is one a caller reaches without the gate by
+    writing nothing that looks like a mistake.
+    `rechenstrasse.admissibility.admission` is where the value this takes comes
+    from and where the bound on that protection is written.
     """
+    action = admitted.action
     reasons: list[str] = []
     varied: list[tuple[representation.Term, sp.Expr]] = []
     for term in action.lagrangian.terms:

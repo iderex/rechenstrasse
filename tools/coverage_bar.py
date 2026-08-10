@@ -75,6 +75,14 @@ SURFACE: tuple[Surface, ...] = (
         ),
     ),
     Surface(
+        path="src/rechenstrasse/admissibility/admission.py",
+        because=(
+            "it is the only route from a document to the stages that compute, "
+            "and an arm of it that nothing exercises is a document reaching "
+            "those stages on a verdict nobody read"
+        ),
+    ),
+    Surface(
         path="src/rechenstrasse/document/reader.py",
         because=(
             "it decides whether a document becomes the action the later stages "
