@@ -227,6 +227,30 @@ somebody else's red. The suite has one there too, a test whose assertion fails,
 because a job that reports green whatever the suite said is the same defect one
 step further out.
 
+## What stays on the host
+
+A theory document is often unpublished work, and it may carry a name, an
+institution or an address alongside the physics.
+
+The pipeline runs offline. It makes no network request while it computes, it
+checks for no updates, it reports no crashes and it collects no usage data.
+Input documents, intermediate expressions, results and run records stay on the
+host. Personal data in a document stays with the document.
+
+If a later version can send anything anywhere, it does so only because the
+operator asked for that, per run, and the documentation says what would be sent
+before it is sent.
+
+Installing the pipeline is a different thing and this promise does not cover it.
+The dependencies come from wherever the operator configures their package tooling
+to fetch them, and the interpreter build named in `.python-version` is fetched
+the same way. Both are the operator's own network activity rather than the
+pipeline's, and a promise that reached over them would be a promise about a
+machine this project does not run.
+
+[docs/privacy.md](docs/privacy.md) carries the same statement together with what
+stands behind it, which is two guards and the gap between them and the promise.
+
 ## License
 
 Copyright (C) 2026 Nils Lehnen. Two sets of terms, because the tree holds two
