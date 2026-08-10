@@ -59,6 +59,25 @@ refusal that reaches a run rather than a suite is held.
 
 ## Where the pipeline writes
 
-Not answered here. What the pipeline writes to disk, where each of those paths
-is, and the command that removes each one is issue #58, and this page will point
-at that answer rather than repeat it once it exists.
+Nothing, so far, and that is a measurement rather than a plan. Every stage this
+tree has, driven over every theory document in it, leaves no file in the working
+directory it ran in and none under the home directory the interpreter was pointed
+at. Four legs say so, two of them the near miss that plants the write and checks
+it is seen:
+
+```
+uv run --frozen pytest -q tests/test_where_the_pipeline_writes.py
+```
+
+That measurement reads a run rather than the source, which is the whole reason it
+is worth taking. A cache written by the algebra library under this pipeline is a
+file in an operator's home directory exactly like one written here, and a reading
+of `src/` would see only the second kind.
+
+What it does not answer. There is no command an operator runs, no output file, no
+run record carrying the provenance, and nothing behind the canonicalisation seam
+for a cache of canonical forms to sit under. So none of those three has a path
+here, a description of what it contains or a command that removes it, and the
+property that a cleared cache still reproduces the same result has nothing to be
+measured against. Issue #58 is where all of that is written down once the three
+exist, and it is open.
