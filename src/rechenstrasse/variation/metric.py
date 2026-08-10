@@ -47,11 +47,17 @@ connection collapses to:
         = sqrt(-g) ( u R_mn - 1/2 u R g_mn )
         + sqrt(-g) u ( g_mn box - grad_m grad_n ) delta g^{mn}
 
-`_integrate_by_parts` moves those two derivatives off the variation and onto
-`u`, which is the step that turns them into `g_mn box u - grad_m grad_n u` and
-leaves two total divergences behind. That function returns the divergences and
-this module drops them. Naming every dropped surface term in the run record is
-issue #32, and until it lands they are computed here and reach no output.
+`integrate_by_parts` moves those two derivatives off the variation and onto `u`,
+which is the step that turns them into `g_mn box u - grad_m grad_n u` and leaves
+two total divergences behind. It is the only place in this module where a
+boundary term is created, which is what makes it the only place one can be lost.
+
+Issue #32 is why those divergences are values rather than a comment. `derive`
+returns them beside the equation, so an equation and the assumptions it was
+reached under travel together, and a reader of a derivation can see which
+boundary terms were taken to vanish. What no output carries them into is a run
+record: record 0007's provenance block is issue #60 and does not exist, so
+today they reach the caller of this stage and nothing further.
 
 Which heads this stage has a rule for. The four in `RULES`, which are the
 covered heads of the admissibility gate whose terms are built from the metric,
@@ -115,6 +121,14 @@ COUPLING: Final = 8 * sp.pi * NEWTON_CONSTANT
 # an undefined function of the arguments its head is written with.
 CONSTANT_COEFFICIENT_HEADS: Final[frozenset[str]] = frozenset(
     {"ricci_scalar", "cosmological_constant"}
+)
+
+# What every boundary term this stage drops is dropped under. Written once and
+# carried on each dropped term, because an assumption stated in a docstring is
+# one the reader of a result never sees.
+BOUNDARY_ASSUMPTION: Final = (
+    "the variation of the metric and its first derivative vanish on the "
+    "boundary of the region the action is integrated over"
 )
 
 # The covered heads this stage has no variation rule for, and why. A head sits
@@ -196,6 +210,46 @@ class FieldEquation:
 
 
 @dataclass(frozen=True)
+class SurfaceTerm:
+    """One total divergence the variation dropped, and what dropping it assumes.
+
+    Issue #32. A boundary term discarded without being named is a defect that
+    surfaces much later as a factor nobody can find, so the discard is a value
+    here rather than a comment.
+
+    `around` is the scalar the divergence is built from, `divergence` is the
+    thing itself written out, and `assumed` is the condition under which it may
+    be dropped. `vanishes_by_itself` is true where that scalar is constant, in
+    which case one half of the divergence is zero and only the surviving half
+    is written. The flag is not a statement that the term vanished: the reader
+    of a derivation wants to know which boundary terms were assumed away and
+    which of those had a part that went away on its own.
+    """
+
+    around: sp.Expr
+    divergence: str
+    assumed: str
+    vanishes_by_itself: bool
+
+    def __str__(self) -> str:
+        return f"{self.divergence}, dropped assuming {self.assumed}"
+
+
+@dataclass(frozen=True)
+class Derivation:
+    """What one variation produced: the equation, and everything it threw away.
+
+    The two travel together because they are one result. An equation read
+    without the boundary terms that were dropped to reach it is an equation
+    whose assumptions the reader cannot see, which is the failure issue #32 is
+    about.
+    """
+
+    equation: FieldEquation
+    surface_terms: tuple[SurfaceTerm, ...]
+
+
+@dataclass(frozen=True)
 class NotDerived:
     """Why this stage produced no field equation for a document.
 
@@ -268,58 +322,84 @@ def _assemble(
     return FieldEquation(terms=tuple(kept), constants=constants)
 
 
-def _integrate_by_parts(
+def integrate_by_parts(
     coefficient: sp.Expr, constants: frozenset[sp.Symbol]
-) -> tuple[list[tuple[Structure, sp.Expr]], tuple[str, ...]]:
+) -> tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]]:
     """Move the two derivatives of the curvature variation off the variation.
 
-    What goes in is the scalar `u` standing in front of the curvature scalar.
-    What the variation carries at that point is
+    Issue #32. This is the named operation, and it is the only place in this
+    module where a boundary term is created, so it is the only place one can be
+    lost. What goes in is the scalar `u` standing in front of the curvature
+    scalar, and what the variation carries at that point is
 
         sqrt(-g) u ( g_mn box - grad_m grad_n ) delta g^{mn}
 
-    and each of the two is integrated by parts twice. What comes back is the
-    pair that acts on `u` instead, and the two total divergences that were
-    dropped to get there, named. Nothing in this tree carries those names into
-    an output; issue #32 is where they reach the run record.
+    Each of the two is integrated by parts twice. What comes back is the pair
+    that acts on `u` instead, and every total divergence that was dropped to get
+    there, written out.
+
+    Each integration by parts leaves one divergence, so two of them leave two,
+    and each divergence has two halves: the derivative that was still on the
+    variation, and the one that came off `u`. Where `u` is constant the second
+    half is zero and is not written, because a report that prints a term the
+    derivation never dropped is as bad as one that hides a term it did.
     """
     moved = _derivative_of(
         BOX_TIMES_METRIC, coefficient, sp.Integer(1), constants
     ) + _derivative_of(HESSIAN, coefficient, sp.Integer(-1), constants)
-    dropped = (
-        f"grad^l ( ({coefficient}) g_mn grad_l delta g^(mn) "
-        f"- g_mn delta g^(mn) grad_l ({coefficient}) )",
-        f"grad^m ( ({coefficient}) grad^n delta g_(mn) "
-        f"- delta g_(mn) grad^n ({coefficient}) )",
+    against_the_variation = (
+        ("l", f"({coefficient}) g_mn grad_l delta g^(mn)"),
+        ("m", f"({coefficient}) grad^n delta g_(mn)"),
     )
-    return moved, dropped
+    off_the_coefficient = (
+        f"g_mn delta g^(mn) grad_l ({coefficient})",
+        f"delta g_(mn) grad^n ({coefficient})",
+    )
+    constant = coefficient.free_symbols <= constants
+    dropped: list[SurfaceTerm] = []
+    for (index, first), second in zip(
+        against_the_variation, off_the_coefficient, strict=True
+    ):
+        written = first if constant else f"{first} - {second}"
+        dropped.append(
+            SurfaceTerm(
+                around=coefficient,
+                divergence=f"grad^{index} ( {written} )",
+                assumed=BOUNDARY_ASSUMPTION,
+                vanishes_by_itself=constant,
+            )
+        )
+    return moved, tuple(dropped)
 
 
 def _vary_curvature_scalar(
     coefficient: sp.Expr, constants: frozenset[sp.Symbol]
-) -> list[tuple[Structure, sp.Expr]]:
+) -> tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]]:
     """The variation of `u R`, with the connection pieces moved onto `u`.
 
     The first two terms are what the variation of the inverse metric and of the
     volume element give directly. The rest is the variation of the connection,
-    which reaches `u` only through the integration by parts above.
+    which reaches `u` only through the integration by parts above, and which is
+    the only part of this module that drops anything.
     """
     pointwise = [
         (Structure(RICCI), coefficient),
         (Structure(METRIC), -sp.Rational(1, 2) * coefficient * CURVATURE_SCALAR),
     ]
-    moved, _dropped_surface_terms = _integrate_by_parts(coefficient, constants)
-    return pointwise + moved
+    moved, dropped = integrate_by_parts(coefficient, constants)
+    return pointwise + moved, dropped
 
 
 def _vary_g2(
     coefficient: sp.Expr, _constants: frozenset[sp.Symbol]
-) -> list[tuple[Structure, sp.Expr]]:
+) -> tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]]:
     """The variation of `G2(phi, X)`.
 
     The metric reaches this term twice: through the volume element, and through
     the kinetic scalar, whose variation with respect to the inverse metric is
-    `-1/2 grad_m phi grad_n phi` under record 0008's definition of `X`.
+    `-1/2 grad_m phi grad_n phi` under record 0008's definition of `X`. Neither
+    route puts a derivative on the variation, so nothing is integrated by parts
+    and no boundary term is dropped.
     """
     return [
         (
@@ -327,12 +407,12 @@ def _vary_g2(
             -sp.Rational(1, 2) * sp.Derivative(coefficient, KINETIC_SCALAR).doit(),
         ),
         (Structure(METRIC), -sp.Rational(1, 2) * coefficient),
-    ]
+    ], ()
 
 
 def _vary_cosmological_constant(
     coefficient: sp.Expr, _constants: frozenset[sp.Symbol]
-) -> list[tuple[Structure, sp.Expr]]:
+) -> tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]]:
     """The variation of the constant term, in record 0008's normalisation.
 
     Record 0008 fixes the field equations as `G_mn + Lambda g_mn = 8 pi G T_mn`,
@@ -346,13 +426,18 @@ def _vary_cosmological_constant(
     a curvature term normalised any other way carries a `Lambda` that is not
     record 0008's, and nothing in this tree refuses that document.
     """
-    return [(Structure(METRIC), coefficient / (2 * COUPLING))]
+    return [(Structure(METRIC), coefficient / (2 * COUPLING))], ()
 
 
-# One rule per head this stage varies. `field_equation` dispatches on this
-# mapping, and the suite holds its keys, together with `NOT_DERIVED`, against
-# the covered heads of the admissibility gate.
-Rule = Callable[[sp.Expr, frozenset[sp.Symbol]], list[tuple[Structure, sp.Expr]]]
+# One rule per head this stage varies. `derive` dispatches on this mapping, and
+# the suite holds its keys, together with `NOT_DERIVED`, against the covered
+# heads of the admissibility gate. A rule returns what it contributes to the
+# equation and every boundary term it dropped, in that order, so a rule that
+# drops one cannot return without saying so.
+Rule = Callable[
+    [sp.Expr, frozenset[sp.Symbol]],
+    tuple[list[tuple[Structure, sp.Expr]], tuple[SurfaceTerm, ...]],
+]
 
 RULES: Final[dict[str, Rule]] = {
     "ricci_scalar": _vary_curvature_scalar,
@@ -413,7 +498,21 @@ def coefficient_of(term: representation.Term) -> sp.Expr | None:
 
 
 def field_equation(action: representation.Action) -> FieldEquation | NotDerived:
-    """`E_mn` for one action, or why this stage did not derive it.
+    """`E_mn` alone, for a caller that has no use for what was dropped.
+
+    A convenience over `derive` and nothing more. It is not the way to get an
+    equation whose assumptions a reader has to see: the surface terms are part
+    of the result rather than a detail of how it was reached, which is why the
+    fuller value is the one with its own name.
+    """
+    produced = derive(action)
+    if isinstance(produced, NotDerived):
+        return produced
+    return produced.equation
+
+
+def derive(action: representation.Action) -> Derivation | NotDerived:
+    """`E_mn` for one action with every boundary term it dropped, or why not.
 
     Every term contributes or the document produces no equation at all, because
     a field equation missing one term of the action is wrong in the way that
@@ -443,9 +542,14 @@ def field_equation(action: representation.Action) -> FieldEquation | NotDerived:
         return NotDerived(reasons=tuple(reasons))
     constants = constants_of(action)
     produced: list[tuple[Structure, sp.Expr]] = []
+    dropped: list[SurfaceTerm] = []
     for term, coefficient in varied:
-        produced.extend(RULES[term.head](coefficient, constants))
-    return _assemble(produced, constants)
+        contribution, boundary = RULES[term.head](coefficient, constants)
+        produced.extend(contribution)
+        dropped.extend(boundary)
+    return Derivation(
+        equation=_assemble(produced, constants), surface_terms=tuple(dropped)
+    )
 
 
 def substituting(

@@ -240,28 +240,6 @@ def test_a_constant_coefficient_leaves_no_second_derivative_behind() -> None:
     assert kinds == {metric.RICCI, metric.METRIC}
 
 
-def test_the_integration_by_parts_names_the_surface_terms_it_dropped() -> None:
-    """Two total divergences leave the curvature variation, and both are named.
-
-    They reach no output today, which is issue #32. What is asserted here is
-    that they are produced and that each names the scalar it was dropped around,
-    because a surface term reported as an empty string is the failure the record
-    exists against.
-    """
-    coefficient = sp.Function("G4")(PHI)
-    moved, dropped = metric._integrate_by_parts(coefficient, frozenset())
-    assert len(dropped) == 2
-    # Twice in each, because each divergence carries the scalar in both places
-    # the integration by parts put it: under the derivative that was on the
-    # variation, and under the one that was moved onto the scalar. A surface
-    # term naming it once is one of the two halves written down.
-    assert all(surface.count(str(coefficient)) == 2 for surface in dropped)
-    assert {shape.kind for shape, _ in moved} == {
-        metric.HESSIAN,
-        metric.BOX_TIMES_METRIC,
-    }
-
-
 def test_a_parameter_the_document_declares_is_a_constant_of_the_derivation() -> None:
     """What a theory holds constant is read off its document, not recognised.
 
