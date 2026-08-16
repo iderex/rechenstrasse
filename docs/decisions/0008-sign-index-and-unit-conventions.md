@@ -11,8 +11,8 @@ written in a different set?
 ## Answer
 
 One set, fixed here, used everywhere. It is the set Misner, Thorne and Wheeler
-use, and what this repository is held to is the formulas below rather than the
-citation, so a reader can check the tree against the page rather than against a
+use, and what this repository is held to is the formulas below, not the
+citation, so a reader can check the tree against the page and not against a
 book title.
 
 The metric signature is `(-, +, +, +)`. A timelike interval is negative.
@@ -42,7 +42,7 @@ Units are geometrised in the speed of light only. `c` is 1. The gravitational
 coupling stays visible as `8 pi G` and is not absorbed into the normalisation of
 a field or a coupling function. A theory written with the reduced Planck mass
 declares `M^2 = 1 / (8 pi G)` in its own document and the pipeline reads the
-translation rather than inferring it.
+translation instead of inferring it.
 
 Index conventions. Indices are the abstract named slots of record 0005, and the
 order a tensor's indices are written in is the order they mean. Nothing
@@ -77,8 +77,8 @@ commit message or during review is not a translation this repository has.
 
 Each convention above becomes one named constant or one documented function in
 the code that uses it, not an assumption repeated in several modules. No code
-exists in the tree yet, so today this record is the only place any of it is
-written down, and nothing refuses a stage that assumes its own signature. Issue
+exists in the tree yet, so today the conventions above are written down here and
+nowhere else, and nothing refuses a stage that assumes its own signature. Issue
 #8 stays open for that half.
 
 ## Reasons
@@ -90,11 +90,11 @@ are structurally correct and off by a minus, which survive review, survive the
 identity checks of issue #34 in some cases, and surface at the parity comparison
 as a disagreement nobody can localise because both sides look reasonable.
 
-Fixing them before anything uses them, rather than when the first disagreement
+Fixing them before anything uses them, and not when the first disagreement
 appears, is the point. After the fact, the convention is chosen by whichever
 answer the fix makes match, which is fitting the convention to the result.
 
-Keeping `G` visible rather than setting it to 1 is not a stylistic choice. In a
+Keeping `G` visible instead of setting it to 1 is not a stylistic choice. In a
 scalar-tensor theory the constant in the field equations and the constant a
 Cavendish experiment measures are different numbers, and the relation between
 them is part of what the post-Newtonian stage computes. Absorbing one into the
@@ -104,7 +104,7 @@ measure it.
 The cosmological constant on the geometry side, with one symbol, because the
 alternative is a theory whose document carries it twice, once as `Lambda` and
 once inside a potential, and a pipeline that adds both. Requiring the
-declaration in the document rather than detecting it is record 0004's rule
+declaration in the document instead of detecting it is record 0004's rule
 applied here: the input says what it means and the pipeline does not guess.
 
 The factorial weight is stated because both conventions are in use and the
@@ -119,7 +119,7 @@ asserts a number whose provenance says something that is no longer true of it.
 
 ## Ruled out
 
-A stage that assumes a signature rather than reading the one named here. A
+A stage that assumes a signature instead of reading the one named here. A
 second convention held anywhere in the tree for convenience, including inside a
 single fixture. A convention documented only in a comment. Translating a
 published value without recording the source convention and the translation

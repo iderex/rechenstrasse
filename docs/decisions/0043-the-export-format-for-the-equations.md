@@ -16,7 +16,7 @@ runs of the same input produce the same bytes and the replay requirement in
 
 The document carries six things:
 
-The equations, as the expression structure the pipeline works in rather than as
+The equations, as the expression structure the pipeline works in and not as
 a string in some computer algebra dialect. A string obliges the consumer to
 carry a parser for whichever dialect was picked and throws away the index
 structure on the way out.
@@ -28,11 +28,11 @@ The gauge, named explicitly. Never implied, and never carried only in the file
 name.
 
 The conventions the equations are written in. The conventions themselves are
-fixed elsewhere and this document records which ones were in force, so a reader
+fixed elsewhere, and the export names which ones were in force, so a reader
 translating into their own does not have to guess.
 
 The background quantities the equations refer to, so the export stands on its
-own rather than pointing back at a run the reader does not have.
+own instead of pointing back at a run the reader does not have.
 
 The provenance block from `0007`: the hash of the input document, the version of
 the pipeline, the versions of the libraries that did the algebra, which
@@ -58,26 +58,26 @@ Comparing against data. That needs a likelihood, a data set with its own
 systematics, and a statistics argument, and each of those is a project.
 
 The export format is what keeps all three doors open, and this record says so
-rather than leaving the omission to be read as an oversight.
+instead of leaving the omission to be read as an oversight.
 
 ## Reasons
 
-JSON rather than YAML, because the requirement that two runs agree byte for byte
+JSON over YAML, because the requirement that two runs agree byte for byte
 is easier to hold in a format with fewer ways to write the same value, and
-because the consumer is a numerical code rather than a person editing the file.
+because the consumer is a numerical code, not a person editing the file.
 The cost is that the raw document is unpleasant to read, and the rendered form
 is what pays it.
 
-The expression structure rather than a rendered string, because the structure is
+The expression structure over a rendered string, because the structure is
 what a consumer can act on. Anybody who wants the string can generate it from
 the structure, and nobody can go the other way without a parser.
 
-Six required contents rather than the equations alone, because an equation
+Six required contents instead of the equations alone, because an equation
 without its gauge, its conventions and its variable definitions is not wrong so
 much as unusable, and the missing parts get filled in by assumption on the
 receiving end.
 
-The three exclusions are stated as decisions rather than as work not yet done,
+The three exclusions are stated as decisions and not as work not yet done,
 because an omission that is not argued reads as a gap somebody should close.
 
 ## Ruled out

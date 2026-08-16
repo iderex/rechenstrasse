@@ -25,7 +25,7 @@ named thing is the whole of what goes.
 
 It prints exactly what would be sent, and waits for a decision. The print is the
 content, not a description of it or a count of it, and the wait is a decision
-rather than a countdown that proceeds on silence.
+and not a countdown that proceeds on silence.
 
 It never sends an input document as a side effect of sending a result. A result
 carries the hash of its input under record 0007, and a hash is not the document.
@@ -39,7 +39,7 @@ that this pipeline performs.
 Turning it on is per run and never a stored setting. A setting somebody enabled
 once and forgot is indistinguishable, from the operator's side, from a pipeline
 that sends by default, and the promise in issue #54 is about what the machine
-does rather than about what somebody remembers agreeing to.
+does, not about what somebody remembers agreeing to.
 
 These five are changed by a new record superseding this one, in the way record
 0001 fixes for every record here, and not by editing this file. That is worth
@@ -60,12 +60,12 @@ Issue #54 states that none of it leaves the host. Federation is the one feature
 that would make that statement false, so its shape is where that statement is
 either kept or quietly lost.
 
-Printing the content rather than describing it, because a description is written
+Printing the content instead of describing it, because a description is written
 by whoever implemented the send, and the operator is being asked to consent to
-the bytes rather than to somebody's summary of them. A count of fields is the
+the bytes and not to somebody's summary of them. A count of fields is the
 form this usually takes and it is the form that hides the field nobody expected.
 
-Waiting for a decision rather than defaulting after a pause, because a timeout
+Waiting for a decision instead of defaulting after a pause, because a timeout
 that proceeds is a send that happened without an answer. Silence is not consent
 anywhere else in this tree and it is not consent here.
 
@@ -74,13 +74,13 @@ sensitivity and the convenient implementation ships them together. A result is a
 parameter expression. An input document is somebody's unpublished theory with
 their name on it.
 
-No telemetry, stated as its own property rather than left as an implication of
+No telemetry, stated as its own property and not left as an implication of
 the others, because telemetry arrives as an exception to a rule about
 federation. It is described as not really sending anything, or as anonymous, or
 as necessary for knowing whether anybody uses the tool, and each of those is an
 argument this record refuses in advance.
 
-Per run rather than stored, because the alternative shifts the promise from the
+Per run, never stored, because the alternative shifts the promise from the
 machine to somebody's memory. It costs the operator a repeated decision, which
 is the price of the decision meaning something.
 
@@ -95,7 +95,7 @@ weakens one of these five. Editing this record to change any of them.
 
 ## Reopened when
 
-A use arrives that these five make impossible rather than inconvenient. The
+A use arrives that these five make impossible, not merely inconvenient. The
 leading candidate is an unattended run, which cannot answer the wait in the
 third property, and the argument there is about how an operator's consent is
-expressed ahead of time rather than about whether it is required.
+expressed ahead of time and not about whether it is required.
