@@ -22,7 +22,7 @@ before it is sent.
 Installing the pipeline is a different thing and this promise does not cover it.
 The dependencies come from wherever the operator configures their package tooling
 to fetch them, and the interpreter build named in `.python-version` is fetched
-the same way. Both are the operator's own network activity rather than the
+the same way. Both are the operator's own network activity and not the
 pipeline's, and a promise that reached over them would be a promise about a
 machine this project does not run.
 

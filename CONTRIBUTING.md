@@ -6,7 +6,7 @@ change has to carry, and which of the two a machine refuses.
 ## Before anything else, run the gate in your clone
 
 There is no single verb here yet. The gate is a set of commands, and every one
-of them is configured in `pyproject.toml` rather than in a workflow file, so the
+of them is configured in `pyproject.toml` and never in a workflow file, so the
 verdict you get in a clone and the verdict on the pull request come from the same
 settings and cannot disagree about a rule.
 
@@ -47,12 +47,12 @@ did not run and the command for each, so a green result cannot be read as
 covering more than it did.
 
 Three checks on the pull request have no useful local form and are listed here so
-that the absence is visible rather than surprising. The dependency review reads
+that the absence is visible instead of surprising. The dependency review reads
 the diff against an advisory database on the server. The hygiene check reads the
 pull request itself, which does not exist until you open one, and the command
-above runs that check's own suite rather than the check. The code scanning
-analysis needs the CodeQL command-line tool, and what it produces is read in the
-code scanning view rather than in a terminal.
+above runs that check's own suite, not the check. The code scanning analysis
+needs the CodeQL command-line tool, and what it produces is read in the code
+scanning view, not in a terminal.
 
 ## Every change starts as an issue and lands as a pull request
 
@@ -63,11 +63,11 @@ exists only to justify a diff already written is the wrong way round.
 An issue says what is wrong, what the evidence is, and what "done" means. If the
 evidence is a number, it carries the command that produced it. The done-when is
 what somebody else will measure the change against, so write it as something
-that can be checked rather than as an intention.
+that can be checked, not as an intention.
 
 A pull request body carries the same obligation, one step sharper. Every asserted
 fact in it carries the command that produced it, run at the commit being pushed
-and against the reference the reader will have rather than against your working
+and against the reference the reader will have, not against your working
 tree. Where a claim cannot be backed by a command, write it as a claim. A number
 pasted from a run of something else is the largest defect class this style exists
 against.
@@ -85,7 +85,7 @@ A machine refuses these. A commit without a sign-off trailer matching its author
 A pull request with an empty body, or one naming no issue. A commit message that
 is a subject line and nothing else. A change to a generated file with no
 `Regenerated: <path>` line in the body. A head branch that is the default branch.
-An action referenced by a tag rather than by a commit. A write permission granted
+An action referenced by a tag instead of a commit. A write permission granted
 at the workflow level. A checkout that persists credentials. A bidirectional or
 invisible Unicode control character in tracked text. A float literal above the
 evaluation boundary, an import that can reach the network, a catch-all `except`,
@@ -134,13 +134,12 @@ the same change, or says in its body why it does not.
 
 That rule is not this document's. It is decided in
 [0004](docs/decisions/0004-an-action-is-a-document.md), which fixes the route the
-schema grows by, and the record rather than this paragraph is what a reader
-should be sent to. What it comes down to is that a term nobody can express today
-arrives with an issue naming it, a schema version carrying it, a fixture document
-using it, and the matching case in the admissibility gate, so the accepted
-surface and the refused surface move together. A term the schema has no head for
-is refused with that head named and is never handed to something that will try
-its luck.
+schema grows by, and that record is where a reader should be sent. What it comes
+down to is that a term nobody can express today arrives with an issue naming it,
+a schema version carrying it, a fixture document using it, and the matching case
+in the admissibility gate, so the accepted surface and the refused surface move
+together. A term the schema has no head for is refused with that head named and
+is never handed to something that will try its luck.
 
 ## Signing off
 
@@ -172,7 +171,7 @@ same thing in a clone.
 | `native-or-long` | `uv run pytest -rs native_or_long`. `-rs` is part of it: a case this machine cannot run is skipped with its reason printed, and without the flag the reason is swallowed and the skip is counted like a pass |
 | `Build wheel` | `uv build --wheel`, then installing that file into an environment with nothing else in it and running the installed copy from outside the checkout |
 | `Generate SBOM` | `uvx --no-build --from "cyclonedx-bom==<version>" cyclonedx-py environment <the artefact's interpreter> --of JSON --output-reproducible --validate`, at the version pinned in `.github/workflows/artefact.yml` |
-| `Mutation testing` | `uv run --frozen --with "cosmic-ray==<version>" cosmic-ray init tools/mutation.toml session.sqlite`, then `cosmic-ray exec` and `cr-report` over that session, at the version pinned in `.github/workflows/mutation.yml`. It runs only on a pull request that touches that workflow or `tools/mutation.toml`, and it reports rather than gates |
+| `Mutation testing` | `uv run --frozen --with "cosmic-ray==<version>" cosmic-ray init tools/mutation.toml session.sqlite`, then `cosmic-ray exec` and `cr-report` over that session, at the version pinned in `.github/workflows/mutation.yml`. It runs only on a pull request that touches that workflow or `tools/mutation.toml`, and it reports and does not gate |
 | `lint` | `uv run --frozen ruff check` |
 | `format` | `uv run --frozen ruff format --check` |
 | `typecheck` | `uv run --frozen mypy` |
@@ -182,15 +181,15 @@ same thing in a clone.
 | `Locked environment restores (macos-latest)` | the same, on that platform |
 | `Locked environment restores (windows-latest)` | the same, on that platform |
 | `DCO sign-off` | `git log --format=%B` and read the trailers |
-| `Deterministic PR-hygiene checks` | `python3 .github/pr-hygiene/test_hygiene.py`, which is the check's own suite rather than the check |
+| `Deterministic PR-hygiene checks` | `python3 .github/pr-hygiene/test_hygiene.py`, which is the check's own suite, not the check |
 | `Reject Trojan Source Unicode` | the pattern and the `git grep` that reads it are in `.github/workflows/unicode-guard.yml` |
-| `Analyze (python)` | none in a clone without the CodeQL command-line tool, and what it finds is read in the code scanning view rather than printed |
+| `Analyze (python)` | none in a clone without the CodeQL command-line tool, and what it finds is read in the code scanning view and never printed |
 | `Audit workflows (zizmor)` | `uvx --no-build "zizmor@<version>" --strict-collection --min-severity=low --format=plain .`, at the version pinned in `.github/workflows/zizmor.yml` |
 | `zizmor` | none, and it is not the row above. Code scanning reports it after that job uploads its results, and it says whether the change introduced a new alert |
 | `CodeQL` | none, and it is not the `Analyze (python)` row. Code scanning reports it after that job uploads its results, and it says whether the change introduced a new alert |
 | `dependency-review` | none, it reads the diff against an advisory database on the server |
 
-The decision record rule runs inside `lint` rather than under a name of its own,
+The decision record rule runs inside `lint` and not under a name of its own,
 and so does the rule that holds this table against the workflows, which is why no
 row above carries either. `Scorecard analysis` is not in the table because it does
 not run on a pull request; it runs on the default branch and on a schedule. Nor is
@@ -212,7 +211,7 @@ uv run --frozen python tools/checks_table.py
 That command derives the names from the workflow files and refuses a row naming a
 check no workflow produces on a pull request, and a check on a pull request that
 no row names. `zizmor` is the one row it cannot derive, because code scanning
-reports it after the audit job uploads its results rather than a workflow file
+reports it after the audit job uploads its results instead of a workflow file
 carrying that string, so it is declared as an exception in `tools/checks_table.py`
 and the exception is refused the day a workflow starts producing it.
 
@@ -231,7 +230,7 @@ gh api repos/iderex/rechenstrasse/commits/<head sha>/check-runs \
 ## What this document does not cover
 
 It says nothing about which of the checks are required before a merge. That is a
-setting on the default branch rather than a fact of this tree, and issue #23 is
+setting on the default branch and not a fact of this tree, and issue #23 is
 where it is decided and written down.
 
 Milestone 2 is not finished, and issues still open in it add checks that do not

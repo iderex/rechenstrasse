@@ -59,14 +59,14 @@ whose rules are about function signatures would let a `MINOR` bump change a
 post-Newtonian parameter as long as no argument list moved, which is exactly
 backwards for this pipeline.
 
-Mathematical equality rather than byte identity across versions, because record
+Mathematical equality, not byte identity, across versions, because record
 0007 already requires byte identity where it is meaningful, at one version, and
 requiring it across versions would forbid every improvement to how an expression
 is printed or ordered. Requiring it anyway would mean the promise is broken by
 work that changed nothing anybody relies on, and a promise broken routinely is
 one nobody checks.
 
-A moved tag is the failure this record exists to prevent. It is cheap, it looks
+A moved tag is the failure the rule above is against. It is cheap, it looks
 like a repair, and it leaves two different artefacts in the world under one
 name, one of which is on somebody's machine and cited. Nothing downstream can
 tell them apart, and the provenance block of record 0007 becomes a record of

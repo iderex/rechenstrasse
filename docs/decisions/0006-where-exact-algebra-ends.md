@@ -26,9 +26,9 @@ until evaluation.
 The boundary is a place in the module layout and not a convention people
 remember. Modules above it may not name a float literal, and the rule that
 refuses one is the greppable invariants check of issue #19. Until that check
-carries the rule, nothing refuses a float above the boundary and this record is
-the only thing saying it may not be there. That is stated here so the record is
-not read as a guarantee it has not yet bought.
+carries the rule, nothing refuses a float above the boundary, and the rule holds
+on paper only. That is said here so it is not read as a guarantee that has not
+yet been bought.
 
 ## Reasons
 

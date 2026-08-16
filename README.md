@@ -42,7 +42,7 @@ uv run python -m rechenstrasse --version
 which prints the version in `pyproject.toml`, read back through the installed
 metadata so the two cannot drift apart. The subcommands an operator will
 actually run are issue #59 and do not exist yet, so a bare
-`python -m rechenstrasse` prints its usage and exits non-zero rather than
+`python -m rechenstrasse` prints its usage and exits non-zero instead of
 looking like a run that did something.
 
 The layout under `src/rechenstrasse/` keeps one package per pipeline stage from
@@ -54,7 +54,7 @@ One package is not a stage. `rechenstrasse.conventions` holds the sign, index
 and unit conventions of
 [0008](docs/decisions/0008-sign-index-and-unit-conventions.md) as named
 constants and documented functions, so that a stage reads the metric signature
-rather than assuming one and calls `riemann` rather than writing the sign out
+instead of assuming one, and calls `riemann` in place of writing the sign out
 again. Every stage below it depends on those choices and none of them may make
 its own.
 
@@ -66,7 +66,7 @@ One command, and it is the whole fast suite:
 uv run pytest -q
 ```
 
-It runs offline. That is a property of the harness rather than of the machine:
+It runs offline. That is a property of the harness and not of the machine:
 `tests/conftest.py` refuses a socket, the convenience constructor that opens one
 and the two name lookups that reach a resolver, for the length of the session,
 and a test that reaches for any of them fails. The refusal has its own exception
@@ -102,7 +102,7 @@ uv run python tools/suites.py
 uv run python tools/test_suites.py
 ```
 
-The list is data in `tools/suites.py` rather than a paragraph here or a line in a
+The list is data in `tools/suites.py` and not a paragraph here or a line in a
 workflow, because it has to fail closed in both directions and neither direction
 can be tested in prose. An entry naming a file that has left the tree is refused,
 so the disclosure cannot describe a suite that moved. A suite in the tree that no
@@ -122,7 +122,7 @@ uv run pytest -rs native_or_long
 
 Two kinds of work belong there, anything that needs a canonicalisation core
 compiled for the machine it runs on and anything long enough that nobody would
-sit through it on every change, and the name says which rather than calling itself
+sit through it on every change, and the name says which instead of calling itself
 the extended or the full suite. `-rs` is part of the command: a case in the
 harness that cannot run on the machine it was started on is skipped with its
 reason printed, never passed, and without that flag the reason is swallowed and
@@ -131,7 +131,7 @@ the skip is counted like a pass.
 On every machine today the native case is skipped, because nothing in this tree
 implements the canonicalisation seam yet and there is no compiled core to find.
 What decides that is `native_or_long/seam.py`, which reads what the seam exposes
-rather than a name written into a test, and its own legs run everywhere, so the
+and not a name written into a test, and its own legs run everywhere, so the
 harness is worth starting on a machine that can run none of its native work. The
 long kind is empty for now. Neither absence is hidden behind a passing test.
 
@@ -176,7 +176,7 @@ gates nothing.
 ## Checks you can run
 
 Three named checks read this tree, and each one is a command you can run in a
-clone. They are configured in `pyproject.toml` rather than in a workflow file,
+clone. They are configured in `pyproject.toml` and not in a workflow file,
 so the verdict here and the verdict on a pull request come from the same
 settings.
 
@@ -196,7 +196,7 @@ uv run python tools/test_decision_records.py
 
 A fourth check reads the invariants a single file decides on its own, under the
 name `Enforce greppable invariants`. What the rules are and what each one
-prevents is in `tools/invariants.py` rather than in a document, because a rule
+prevents is in `tools/invariants.py` and not in a document, because a rule
 restated in prose drifts against the code that decides it:
 
 ```
@@ -206,7 +206,7 @@ uv run python tools/test_invariants.py
 
 What these do not cover. The formatter reads the Python and nothing else, so the
 markdown documents and the workflow files in this tree are laid out by hand, and
-nothing here refuses one for how it is laid out. That is decided rather than
+nothing here refuses one for how it is laid out. That is settled and not
 left open, in
 [0077](docs/decisions/0077-the-documents-and-the-workflow-files-are-laid-out-by-hand.md):
 a formatter over the documents would reach `docs/decisions/`, where a landed
@@ -217,12 +217,12 @@ two documents is caught by a reader or not at all.
 
 The three commands also skip `.github/pr-hygiene/`, which is a standard-library
 module with a suite of its own that runs separately. That gap is recorded in
-issue #17 rather than only here.
+issue #17 and not only here.
 
 `fixtures/` holds files that exist to be refused, one per check, each carrying
 exactly one defect. The workflow runs every check against every fixture and
 requires each fixture to be refused by its own check and accepted by the rest,
-which is how a check is shown to be doing its own job rather than passing along
+which is how a check is shown to be doing its own job instead of passing along
 somebody else's red. The suite has one there too, a test whose assertion fails,
 because a job that reports green whatever the suite said is the same defect one
 step further out.
@@ -244,7 +244,7 @@ before it is sent.
 Installing the pipeline is a different thing and this promise does not cover it.
 The dependencies come from wherever the operator configures their package tooling
 to fetch them, and the interpreter build named in `.python-version` is fetched
-the same way. Both are the operator's own network activity rather than the
+the same way. Both are the operator's own network activity and not the
 pipeline's, and a promise that reached over them would be a promise about a
 machine this project does not run.
 
@@ -273,7 +273,7 @@ git show HEAD:LICENSE-CONTENT | sha256sum
 The digest is of the blob and not of a checkout, and the difference is not
 pedantry. A clone with `core.autocrlf` on hands you the same bytes with a
 carriage return on every line, which digests differently and is the checkout
-speaking rather than the tree.
+speaking and not the tree.
 
 The reason for the split is what a citing paper needs. A value with a citation is
 content, and attribution in terms a bibliography understands is what CC BY states
@@ -284,7 +284,7 @@ and what a code license does not.
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists every distribution in
 `uv.lock` with the terms it declares about itself, and it says which of them
 travel with an installed copy and which are only here to work on the tree. It is
-generated rather than written:
+generated, not written:
 
 ```
 uv run --frozen python tools/third_party_notices.py > THIRD-PARTY-NOTICES.md
@@ -302,7 +302,7 @@ Writing the notice needs an environment holding every distribution in the lock,
 and it refuses by name where one is missing, because a lock carries entries that
 install on one operating system and not another. Checking it verifies the terms
 column only where the distribution is installed, and prints what it could not
-verify rather than passing over it.
+verify instead of passing over it.
 
 ## Citing this work
 
@@ -324,7 +324,7 @@ git rev-parse HEAD
 ```
 
 The provenance the pipeline writes beside a result is the better source for that
-number, because it is the commit that produced the result rather than the one
+number, because it is the commit that produced the result and not the one
 checked out when the paper was written.
 
 What changes when a release is cut, so that a reader coming back later is not
@@ -333,7 +333,7 @@ it, [CITATION.cff](CITATION.cff) grows the version, the release date and that
 identifier, and the identifier is what a bibliography entry resolves. Issue #99
 is where that happens, and it also holds what is still missing, an archive
 account and an identifier for the author. The citation file names neither today
-rather than naming an empty one, because a key a bibliography tool resolves to
+instead of naming an empty one, because a key a bibliography tool resolves to
 nothing is worse than a key that is absent.
 
 The author name in the citation file is held against the copyright line above by

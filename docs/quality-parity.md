@@ -3,10 +3,11 @@
 Ordered by issue #48.
 
 The target for the gate on this board is the gate on the jellyfin-plugin-sso
-board, taken leg by leg. This document exists so that a leg this board does not
-have is a stated deviation with a reason rather than an absence nobody noticed.
+board, taken leg by leg. A leg this board does not have is listed below as a
+stated deviation with a reason, so nobody has to guess whether it was dropped on
+purpose.
 
-The target's legs were read from that repository's mainline rather than from a
+The target's legs were read from that repository's mainline, not from a
 checkout, at `c1c06a395399c87facfd10825ada4c08bd506926`:
 
     git -C <clone> fetch origin
@@ -59,7 +60,7 @@ Legs of this board that the target does not have:
 
 ## Deviations, one line each
 
-Build and test is adapted rather than adopted because the target's leg builds a
+Build and test is adapted, not adopted, because the target's leg builds a
 compiled solution and this one runs a test suite, which is the same role in a
 tree with no compiler.
 
@@ -68,9 +69,9 @@ binary interface floor and this board holds a library version floor, and the
 failure caught is the same one: code that works against the newest and breaks
 against the oldest the project claims.
 
-The package build is adapted because the artefact is a wheel rather than a
-plugin package, and the interesting half is the same in both: installing it into
-an empty environment and running it.
+The package build is adapted because the artefact is a wheel and not a plugin
+package, and the interesting half is the same in both: installing it into an
+empty environment and running it.
 
 Static analysis is adapted only in the language it analyses.
 
@@ -103,38 +104,36 @@ only place this pipeline reads a file somebody else wrote.
 
 The end to end login harness is absent because nothing here logs in, and the end
 to end leg of this board is the reference value parity run, which is required on
-every change rather than scheduled because it is cheap enough to be.
+every change instead of scheduled, because it is cheap enough to be.
 
 The distribution manifest freshness check is absent while nothing is published,
 and it comes back if the package is published, which is an open question in #12
 and is not settled here.
 
 The wiki lint is absent because the documentation lives in this tree and is
-covered by the formatting leg rather than by a separate check against a separate
-wiki.
+covered by the formatting leg, not by a separate check against a separate wiki.
 
 ## What this table does not say
 
 It does not say that this board's gate is as good as the target's. Most of the
-rows above name an open issue rather than a check that runs, and an issue is a
-plan. What carries a pull request trigger in this repository is derived rather
-than counted here:
+rows above name an open issue, not a check that runs, and an issue is a plan.
+What carries a pull request trigger in this repository is derived by the command
+below and never counted here:
 
     git grep -l '^  pull_request:' origin/main -- .github/workflows/
 
 A row marked adopted whose "carried by" column names an open issue is a leg this
 board intends to have and does not have yet. The distinction is the whole value
-of the table, and collapsing it would turn this document into a claim that the
-parity already exists.
+of the table, and collapsing it would leave a claim that the parity already
+exists.
 
-This paragraph is the repair for a defect it carried on the way in. It said four
-checks ran on a pull request, and cited `ls .github/workflows`, which lists a
-workflow that never runs on one and does not produce the number it was quoted
-for. The count was also stale before anybody read it, because a leg landed
-between this document being written and being merged. A number quoted with a
-command that does not produce it is worse than a number with no command at all,
-since the citation invites a reader not to check. The command above produces the
-answer instead of decorating one.
+An earlier version of the paragraph above said four checks ran on a pull
+request, and cited `ls .github/workflows`, which lists a workflow that never
+runs on one and does not produce the number it was quoted for. The count was
+stale before anybody read it as well, because a leg landed between the writing
+and the merge. A number quoted with a command that does not produce it is worse
+than a number with no command at all, since the citation invites a reader not to
+check. The command above produces the answer instead of decorating one.
 
 It also does not say anything about how well any leg here works, only that it is
 present or absent. Whether the coverage bar is pinned high enough, or whether
